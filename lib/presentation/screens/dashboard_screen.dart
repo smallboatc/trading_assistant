@@ -14,7 +14,20 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('交易助手')),
+      appBar: AppBar(
+        title: const Text('交易助手'),
+        actions: [
+          IconButton(
+            icon: const Icon(CupertinoIcons.add_circled, size: 26),
+            tooltip: '录入持仓',
+            color: AppTheme.systemBlue,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AddPositionScreen()),
+            ),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: Consumer<AppStore>(
         builder: (context, store, _) {
           if (store.positions.isEmpty) {
@@ -25,20 +38,10 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 8),
               _overview(store),
               ...store.positions.map((p) => PositionCard(position: p)),
-              const SizedBox(height: 96),
+              const SizedBox(height: 32),
             ],
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AddPositionScreen()),
-        ),
-        backgroundColor: AppTheme.systemBlue,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        icon: const Icon(Icons.add),
-        label: const Text('录入持仓'),
       ),
     );
   }

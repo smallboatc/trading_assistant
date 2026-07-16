@@ -64,6 +64,6 @@ void main() {
 
     expect(find.text('交易助手'), findsOneWidget);
     expect(find.text('还没有在管持仓'), findsOneWidget);
-    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.text('录入第一笔持仓'), findsOneWidget);
   });
 }

@@ -211,7 +211,14 @@ class ChatStore extends ChangeNotifier {
   /// 发送消息。
   Future<void> send(String text) async {
     if (text.trim().isEmpty || _isStreaming) return;
-    if (_current == null) return;
+    // 当前会话为空时（如 init 竞态）自动建一个，避免静默无反应。
+    if (_current == null) {
+      if (_isGeneral) {
+        newSession();
+      } else {
+        return;
+      }
+    }
 
     if (_api == null) {
       _error = '请先在设置中配置 AI 服务';

@@ -456,7 +456,9 @@ class _ChatScreenState extends State<ChatScreen> {
       label: Text(text, style: const TextStyle(fontSize: 13)),
       backgroundColor: AppTheme.groupedBackground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      onPressed: () => _store.send(text),
+      onPressed: () {
+        _store.send(text);
+      },
     );
   }
 
