@@ -196,9 +196,11 @@ class EastMoneyDataSource implements MarketDataSource {
 
   /// 用日K接口取指数最新收盘价，用最近两根 K 线算涨跌幅。
   Future<IndexQuote?> _fetchIndexQuote(String secid, String name) async {
+    // 只拉最近 30 天，避免 beg=0 拉全量历史导致请求过大被限流。
+    final beg = _ymd(DateTime.now().subtract(const Duration(days: 30)));
     final url = Uri.parse(
       '$_klineHost/api/qt/stock/kline/get?secid=$secid'
-      '&klt=101&fqt=1&beg=0&end=20500101'
+      '&klt=101&fqt=1&beg=$beg&end=20500101'
       '&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56',
     );
     try {
@@ -245,10 +247,12 @@ class EastMoneyDataSource implements MarketDataSource {
       if (data == null) return [];
       return data.map((e) {
         final item = e as Map<String, dynamic>;
+        // 东财 clist 板块接口 fltt=1 时 f3 为基点（如 -102 = -1.02%），
+        // 转为小数需 /10000。
         final pct = (item['f3'] as num?)?.toDouble() ?? 0;
         return SectorQuote(
           name: item['f14']?.toString() ?? '未知板块',
-          changePercent: pct / 100,
+          changePercent: pct / 10000,
         );
       }).toList();
     } catch (_) {

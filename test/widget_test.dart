@@ -3,7 +3,6 @@
 //
 // 注入 _FakeDataSource 避免测试打真实网络（东财/腾讯）。
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:trading_assistant/core/market/market_data_source.dart';

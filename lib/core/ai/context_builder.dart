@@ -86,6 +86,9 @@ class ContextBuilder {
     final sb = StringBuffer();
     sb.writeln('你是一位专业的 A 股交易顾问。以下是当前市场概况，'
         '请基于这些数据与用户对话。');
+    sb.writeln('注意：行情数据来自非官方接口，可能因限流暂时缺失。'
+        '若某项数据标注「数据获取失败」，请说明该部分暂未取到，'
+        '并基于已有数据尽量分析，不要笼统说「无法获取实时数据」而拒绝回答。');
     sb.writeln();
 
     sb.writeln(_overviewSection(overview));
