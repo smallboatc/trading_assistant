@@ -75,14 +75,6 @@ class PositionCard extends StatelessWidget {
             ),
           ),
         ),
-        IconButton(
-          icon: const Icon(CupertinoIcons.tag, size: 20),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          tooltip: '手动输入当前价',
-          color: AppTheme.systemGray,
-          onPressed: () => _showManualPriceDialog(context),
-        ),
         PopupMenuButton<String>(
           icon: const Icon(CupertinoIcons.ellipsis, size: 20),
           padding: EdgeInsets.zero,
@@ -174,68 +166,6 @@ class PositionCard extends StatelessWidget {
             child: const Text('删除'),
           ),
         ],
-      ),
-    );
-  }
-
-  /// 行情中断时人工输入当前价（兜底层4）。详见产品设计文档兜底方案。
-  /// 无效输入给出红字提示，不再静默无反应。
-  void _showManualPriceDialog(BuildContext context) {
-    final controller = TextEditingController(
-      text: position.currentPrice?.toStringAsFixed(2) ?? '',
-    );
-    var error = '';
-    showCupertinoDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => CupertinoAlertDialog(
-          title: const Text('手动输入当前价'),
-          content: Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Column(
-              children: [
-                CupertinoTextField(
-                  controller: controller,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  placeholder: '从看盘软件抄一个数',
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF2F2F7),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                if (error.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(error,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppTheme.nearStop)),
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('取消'),
-            ),
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              onPressed: () {
-                final p = double.tryParse(controller.text.trim());
-                if (p == null || p <= 0) {
-                  setState(() => error = '请输入大于 0 的有效价格');
-                  return;
-                }
-                context.read<AppStore>().setManualPrice(position.id, p);
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('确认'),
-          ),
-        ],
-      ),
       ),
     );
   }
