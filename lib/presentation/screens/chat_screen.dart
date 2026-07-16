@@ -88,10 +88,12 @@ class _ChatScreenState extends State<ChatScreen> {
       drawer: isGeneral ? _buildSessionsDrawer(context) : null,
       appBar: AppBar(
         leading: isGeneral
-            ? IconButton(
-                icon: const Icon(CupertinoIcons.list_bullet, size: 22),
-                tooltip: '历史聊天',
-                onPressed: () => Scaffold.of(context).openDrawer(),
+            ? Builder(
+                builder: (scaffoldCtx) => IconButton(
+                  icon: const Icon(CupertinoIcons.list_bullet, size: 22),
+                  tooltip: '历史聊天',
+                  onPressed: () => Scaffold.of(scaffoldCtx).openDrawer(),
+                ),
               )
             : null,
         title: ListenableBuilder(

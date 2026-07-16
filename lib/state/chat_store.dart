@@ -108,6 +108,7 @@ class ChatStore extends ChangeNotifier {
     }
     _initialized = true;
     await _rebuildContext();
+    _safeNotify();
   }
 
   /// 新建会话。通用模式持久化（若 persist=true）；持仓模式不用此方法。
@@ -372,12 +373,12 @@ class ChatStore extends ChangeNotifier {
     _safeNotify();
   }
 
-  /// 顶部显示的标题。
+  /// 顶部显示的标题。持仓模式显示「{股票名} 持仓分析」，通用模式固定「AI 助手」。
   String get contextTitle {
     if (_contextType == ChatContextType.position && _position != null) {
       return '${_position!.name} 持仓分析';
     }
-    return _current?.title ?? 'AI 助手';
+    return 'AI 助手';
   }
 
   /// 是否已配置 AI。
