@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../models/alert.dart';
 import '../models/kline.dart';
 import '../models/position.dart';
@@ -125,13 +127,17 @@ class StrategyEvaluator {
     }
 
     // ---- 第四层：止盈 ----
+    // 钱德勒移动止盈 = highestPrice - atr×倍数（从最高价往下减，回撤到此价才卖）。
+    // 高波动股 atr 大，裸值会远低于现价、甚至吐光利润（如 ATR 占价 8% 时 3 倍回撤=24%）。
+    // 故移动止盈设「利润锁定下限」= max(止损线+缓冲, 成本+锁定利润)，锁定利润取
+    // max(已实现最高浮盈×60%, 成本×8%)，保证：① 止盈永远高于止损；② 已盈利时
+    // 至少锁定六成浮盈或 8% 利润，不被高波动回撤吐光。
+    // 未盈利时（highestPrice≤cost）不设移动止盈线（返回 null），避免建仓即误触发。
+    // 分批止盈走目标价（成本+盈亏比×风险），不受此限。
     double? takeProfitPrice;
     AlertType? takeProfitType;
     if (atr != null) {
-      if (cfg.takeProfitStrategy == TakeProfitStrategy.trailingOnly) {
-        takeProfitPrice = position.highestPrice - atr * cfg.trailingMultiple;
-        takeProfitType = AlertType.trailingTakeProfit;
-      } else if (cfg.takeProfitStrategy == TakeProfitStrategy.batchAndTrailing) {
+      if (cfg.takeProfitStrategy == TakeProfitStrategy.batchAndTrailing) {
         // 分批止盈：跳过已触发档，取下一档目标价；全触发后剩余仓位用移动止盈。
         final riskPerShare = position.initialStopPrice != null
             ? (cost - position.initialStopPrice!)
@@ -143,10 +149,22 @@ class StrategyEvaluator {
           final nextTarget = remaining.first;
           takeProfitPrice = cost + nextTarget.riskRewardRatio * riskPerShare;
           takeProfitType = AlertType.takeProfitTarget;
-        } else {
-          // 无风险额度或分批档已全触发，剩余仓位用移动止盈。
-          takeProfitPrice =
-              position.highestPrice - atr * cfg.trailingMultiple;
+        }
+      }
+      // 移动止盈（trailingOnly 直接用；batchAndTrailing 分批档全触发后兜底）：
+      // 仅在已盈利时生效，否则不设移动止盈线。
+      final useTrailing = cfg.takeProfitStrategy == TakeProfitStrategy.trailingOnly ||
+          (cfg.takeProfitStrategy == TakeProfitStrategy.batchAndTrailing &&
+              (position.initialStopPrice == null ||
+                  position.triggeredTpCount >=
+                      cfg.takeProfitTargets.length));
+      if (useTrailing) {
+        final realizedGain = position.highestPrice - cost;
+        if (realizedGain > 0) {
+          final lockedProfit = max(realizedGain * 0.6, cost * 0.08);
+          final tpFloor = max(stopPrice + atr * 0.5, cost + lockedProfit);
+          final raw = position.highestPrice - atr * cfg.trailingMultiple;
+          takeProfitPrice = raw < tpFloor ? tpFloor : raw;
           takeProfitType = AlertType.trailingTakeProfit;
         }
       }

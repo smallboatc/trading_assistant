@@ -8,12 +8,13 @@ import '../core/models/alert.dart';
 import '../core/models/fill.dart';
 import '../core/models/position.dart';
 import '../core/models/strategy_config.dart';
+import '../core/storage/position_storage.dart';
 import 'package:flutter/foundation.dart';
 
-/// 应用内存态 store。V1 用 ChangeNotifier 做最简状态管理；
-/// 后续若引入持久化（第八章待讨论问题 12）或多账户隔离，在此扩展。
+/// 应用内存态 store。ChangeNotifier 状态管理。
 ///
 /// 持有：在管持仓列表、提醒列表、监控引擎。监控循环在前台运行。
+/// 持仓/提醒通过 [PositionStorage] 持久化到本地，防后台清理/重启丢失。
 class AppStore extends ChangeNotifier {
   AppStore({MarketDataSource? dataSource})
       : _engine = MonitoringEngine(dataSource: dataSource ?? MockMarketDataSource());
@@ -22,6 +23,30 @@ class AppStore extends ChangeNotifier {
 
   final List<Position> _positions = [];
   final List<Alert> _alerts = [];
+
+  /// 从本地存储加载持仓/提醒/计数器。App 启动时调用一次。
+  Future<void> init() async {
+    final loaded = await PositionStorage.loadPositions();
+    _positions.addAll(loaded);
+    _alerts.addAll(await PositionStorage.loadAlerts());
+    _positionSeq = await PositionStorage.loadSeq();
+    notifyListeners();
+  }
+
+  /// 持久化当前持仓/提醒/计数器。fire-and-forget，写失败不阻断 UI。
+  void _persist() {
+    // fire-and-forget，吞掉持久化异常（如测试环境无 SharedPreferences 插件通道），
+    // 持久化失败不影响 App 运行。
+    () async {
+      try {
+        await PositionStorage.savePositions(_positions);
+        await PositionStorage.saveAlerts(_alerts);
+        await PositionStorage.saveSeq(_positionSeq);
+      } catch (_) {
+        // 忽略：持久化失败时持仓仍保留在内存，下次成功写入即可。
+      }
+    }();
+  }
 
   /// 当前账户。V1 固定为默认账户；多账户见 V3。
   Account activeAccount = Account.defaultAccount;
@@ -43,31 +68,50 @@ class AppStore extends ChangeNotifier {
   int _positionSeq = 0;
 
   /// 新建持仓。返回新建的持仓对象。
+  /// [boughtAt] 为实际买入时间，用于计算持仓天数；不传则取当前。
   Position addPosition({
     required String code,
     required String name,
     required double price,
     required int quantity,
     required StrategyConfig strategy,
+    DateTime? boughtAt,
   }) {
+    final at = boughtAt ?? DateTime.now();
     final pos = Position(
       id: 'pos_${DateTime.now().millisecondsSinceEpoch}_${_positionSeq++}',
       accountId: activeAccount.id,
       code: code,
       name: name,
-      fills: [Fill(price: price, quantity: quantity, time: _nowIso())],
+      fills: [Fill(price: price, quantity: quantity, time: at.toIso8601String())],
       strategy: strategy,
+      createdAt: at,
     );
     pos.highestPrice = price;
     _positions.insert(0, pos);
     notifyListeners();
+    _persist();
+    // 立即用成本价评估一次，让卡片快速显示止损止盈线（不等下一轮 15s tick）。
+    // ATR 用真实日K计算；行情价随后续 tick 更新。
+    _evaluateNow(pos, price);
     return pos;
+  }
+
+  /// 立即评估持仓（fire-and-forget），用于录入后快速出线。
+  Future<void> _evaluateNow(Position pos, double price) async {
+    try {
+      final alert = await _engine.evaluateWith(pos, price);
+      _applyAlert(pos, alert);
+    } catch (_) {
+      // 评估失败忽略，后续 tick 会重试。
+    }
   }
 
   /// 手动平仓 / 删除持仓。
   void removePosition(String id) {
     _positions.removeWhere((p) => p.id == id);
     notifyListeners();
+    _persist();
   }
 
   /// 加仓：对已有持仓追加一笔买入，成本价自动按加权重算。
@@ -79,6 +123,7 @@ class AppStore extends ChangeNotifier {
     pos.fills.add(Fill(price: price, quantity: quantity, time: _nowIso()));
     _resetStrategyState(pos);
     notifyListeners();
+    _persist();
   }
 
   /// 编辑持仓：覆盖成本/数量/策略。成本与数量通过重置首笔 Fill 实现。
@@ -96,6 +141,7 @@ class AppStore extends ChangeNotifier {
     pos.highestPrice = price; // 成本变了，持仓期间最高价重置为新成本
     _resetStrategyState(pos);
     notifyListeners();
+    _persist();
   }
 
   /// 成本/策略变化后重置保本与分批进度（基准已变，旧进度失效）。
@@ -110,6 +156,7 @@ class AppStore extends ChangeNotifier {
   void clearHandledAlerts() {
     _alerts.removeWhere((a) => a.action != AlertAction.pending);
     notifyListeners();
+    _persist();
   }
 
   /// 用户确认提醒（已在券商端操作）。纯提醒模型：按提醒类型差异化处理。
@@ -149,6 +196,7 @@ class AppStore extends ChangeNotifier {
       }
     }
     notifyListeners();
+    _persist();
   }
 
   /// 撤销确认：恢复已了结持仓的监控（用户改主意或误确认时）。
@@ -157,6 +205,7 @@ class AppStore extends ChangeNotifier {
     if (idx < 0) return;
     _positions[idx].handled = false;
     notifyListeners();
+    _persist();
   }
 
   /// 用户忽略提醒（继续监控）。
@@ -166,6 +215,7 @@ class AppStore extends ChangeNotifier {
     final a = _alerts[idx];
     a.action = AlertAction.ignored;
     notifyListeners();
+    _persist();
     _clearAlertState(a.positionId);
   }
 
@@ -175,6 +225,7 @@ class AppStore extends ChangeNotifier {
     if (idx >= 0) {
       _positions[idx].lastAlertId = null;
       notifyListeners();
+    _persist();
     }
   }
 
@@ -211,6 +262,7 @@ class AppStore extends ChangeNotifier {
       pos.lastAlertId = null;
     }
     notifyListeners();
+    _persist();
   }
 
   /// 该持仓是否还有任意类型的未处理提醒（用于清空 lastAlertId 判定）。
@@ -253,6 +305,7 @@ class AppStore extends ChangeNotifier {
       }
     }
     if (changed) notifyListeners();
+    _persist();
   }
 
   String _nowIso() => DateTime.now().toIso8601String();

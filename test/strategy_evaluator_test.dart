@@ -326,4 +326,34 @@ void main() {
         klines: _flatKlines(30, 0.5), currentPrice: 10, alertId: 'b');
     expect(pos.stopBreachSince, isNull);
   });
+
+  // ---- 移动止盈：未盈利不设止盈；已盈利锁定利润、永远高于止损 ----
+  test('移动止盈：未盈利时不设止盈线（避免建仓即误触发）', () {
+    // cost=10, highestPrice=cost=10（未盈利）→ 移动止盈返回 null。
+    final pos = _posWith(0.05, TakeProfitStrategy.trailingOnly);
+    final result = StrategyEvaluator(pos).evaluate(
+      klines: _flatKlines(30, 0.5),
+      currentPrice: 10,
+      alertId: 'a',
+    );
+    expect(result.takeProfitPrice, isNull);
+  });
+
+  test('移动止盈：已盈利时锁定利润，止盈高于止损且不低于成本', () {
+    // cost=10, hardStop 5%→9.5, 关自适应 atr=0.5 倍数2.5 → atrStop=8.75, baseStop=9.5。
+    // 涨到 highestPrice=13（已实现浮盈3），裸移动止盈=13-0.5*3=11.5；
+    // 锁定利润=max(3*0.6, 10*0.08)=max(1.8,0.8)=1.8；下限=max(9.5+0.25, 10+1.8)=max(9.75,11.8)=11.8；
+    // 11.5 < 11.8 → 取 11.8（锁定1.8利润，高于止损9.5、高于成本10）。
+    final pos = _posWith(0.05, TakeProfitStrategy.trailingOnly);
+    pos.highestPrice = 13; // 模拟持仓期间涨到13
+    final result = StrategyEvaluator(pos).evaluate(
+      klines: _flatKlines(30, 0.5),
+      currentPrice: 12,
+      alertId: 'a',
+    );
+    expect(result.stopPrice, 9.5);
+    expect(result.takeProfitPrice, closeTo(11.8, 1e-9));
+    expect(result.takeProfitPrice! > result.stopPrice!, isTrue); // 高于止损
+    expect(result.takeProfitPrice! > 10, isTrue); // 高于成本（锁定利润）
+  });
 }

@@ -42,7 +42,8 @@ class TradingAssistantApp extends StatelessWidget {
             if (preview) {
               _seedPreview(store);
             } else {
-              store.startMonitoring();
+              // 先加载本地持久化数据，再启动监控（监控依赖已加载的持仓）。
+              store.init().then((_) => store.startMonitoring());
             }
             return store;
           },

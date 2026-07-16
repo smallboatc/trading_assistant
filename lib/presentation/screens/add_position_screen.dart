@@ -27,6 +27,9 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
   final _quantity = TextEditingController();
   PresetPlan _preset = PresetPlan.swingStandard;
 
+  /// 买入时间，默认当前。用于计算持仓天数。
+  DateTime _boughtAt = DateTime.now();
+
   /// 名称自动回填防重入。
   bool _lookingUp = false;
 
@@ -38,20 +41,44 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
     _quantity.addListener(() => setState(() {}));
   }
 
-  /// 代码输够 6 位且名称为空时，自动查名称回填。
+  /// 代码输够 6 位且名称为空时，自动查名称回填。2 秒超时，失败静默（用户手填）。
   Future<void> _onCodeChanged() async {
     final code = _code.text.trim();
     if (code.length != 6 || _lookingUp) return;
     if (_name.text.trim().isNotEmpty) return;
     _lookingUp = true;
     try {
-      final name = await context.read<MarketDataSource>().fetchName(code);
+      final name = await context
+          .read<MarketDataSource>()
+          .fetchName(code)
+          .timeout(const Duration(seconds: 2), onTimeout: () => null);
       if (mounted && name != null && name.isNotEmpty && _name.text.isEmpty) {
         setState(() => _name.text = name);
       }
+    } catch (_) {
+      // 查询失败不阻断录入，用户可手填名称。
     } finally {
       _lookingUp = false;
     }
+  }
+
+  /// 选择买入时间。
+  Future<void> _pickBoughtAt() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _boughtAt,
+      firstDate: DateTime(now.year - 5),
+      lastDate: now,
+    );
+    if (picked != null) setState(() => _boughtAt = picked);
+  }
+
+  String _fmtBoughtAt() {
+    final y = _boughtAt.year;
+    final m = _boughtAt.month.toString().padLeft(2, '0');
+    final d = _boughtAt.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
   }
 
   /// 当前预设的硬止损线预览（成本 × (1 - hardStopPercent)）。
@@ -135,6 +162,22 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: _pickBoughtAt,
+              child: InputDecorator(
+                decoration: const InputDecoration(labelText: '买入时间'),
+                child: Row(
+                  children: [
+                    const Icon(CupertinoIcons.calendar, size: 18,
+                        color: AppTheme.labelSecondary),
+                    const SizedBox(width: 8),
+                    Text(_fmtBoughtAt(),
+                        style: AppTextStyles.body),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 28),
             const _SectionLabel('止盈止损策略'),
@@ -296,6 +339,7 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
           price: double.parse(_price.text.trim()),
           quantity: int.parse(_quantity.text.trim()),
           strategy: StrategyConfig.fromPreset(_preset),
+          boughtAt: _boughtAt,
         );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

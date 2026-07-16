@@ -436,53 +436,32 @@ class PositionCard extends StatelessWidget {
           style: AppTextStyles.numberLg,
         ),
         if (position.priceStale) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppTheme.systemGray,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text('延迟',
-                style: TextStyle(fontSize: 10, color: Colors.white)),
-          ),
+          const SizedBox(width: 6),
+          _badge('延迟', AppTheme.systemGray),
         ],
         if (position.marketClosed) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppTheme.systemGray2,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text('盘后·收盘价',
-                style: TextStyle(fontSize: 10, color: Colors.white)),
-          ),
+          const SizedBox(width: 6),
+          _badge('收盘', AppTheme.systemGray2),
         ],
         if (position.stopBreachSince != null &&
             position.distanceToStop != null &&
             position.distanceToStop! < 0) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppTheme.nearTakeProfit,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text('止损确认中',
-                style: TextStyle(fontSize: 10, color: Colors.white)),
-          ),
+          const SizedBox(width: 6),
+          _badge('确认中', AppTheme.nearTakeProfit),
         ],
         const SizedBox(width: 8),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Text('成本 ${position.costPrice.toStringAsFixed(2)}',
-              style: AppTextStyles.caption),
+        // 成本允许收缩，避免小屏一行放不下溢出。
+        Flexible(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              '成本 ${position.costPrice.toStringAsFixed(2)}',
+              style: AppTextStyles.caption,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ),
-        const Spacer(),
+        const SizedBox(width: 8),
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -507,15 +486,28 @@ class PositionCard extends StatelessWidget {
     );
   }
 
+  /// 紧凑状态小标（价格行内，文案尽量短避免小屏溢出）。
+  Widget _badge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(text,
+          style: const TextStyle(fontSize: 10, color: Colors.white)),
+    );
+  }
+
   Widget _linesRow() {
     final stop = position.stopPrice;
     final tp = position.takeProfitPrice;
     return Row(
       children: [
-        _lineChip('止损', stop, AppTheme.nearStop),
+        Flexible(child: _lineChip('止损', stop, AppTheme.nearStop)),
         const SizedBox(width: 8),
-        _lineChip('止盈', tp, AppTheme.nearTakeProfit),
-        const Spacer(),
+        Flexible(child: _lineChip('止盈', tp, AppTheme.nearTakeProfit)),
+        const SizedBox(width: 8),
         Text('持${position.holdingDays}天', style: AppTextStyles.caption),
       ],
     );
@@ -531,6 +523,7 @@ class PositionCard extends StatelessWidget {
       child: Text(
         '$label ${value == null ? '—' : value.toStringAsFixed(2)}',
         style: AppTextStyles.chip.copyWith(color: color),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

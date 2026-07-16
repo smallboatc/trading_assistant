@@ -12,6 +12,9 @@ import 'package:trading_assistant/core/models/strategy_config.dart';
 import 'package:trading_assistant/state/app_store.dart';
 
 void main() {
+  // SharedPreferences 需要 Flutter binding 初始化。
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late AppStore store;
 
   setUp(() {
