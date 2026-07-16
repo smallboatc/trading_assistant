@@ -133,6 +133,10 @@ class _ChatScreenState extends State<ChatScreen> {
       body: ListenableBuilder(
         listenable: storeListenable,
         builder: (context, child) {
+          // 初始化未完成时显示 loading，避免 init 异步未完成时误显示「去配置」。
+          if (!_store.isInitialized) {
+            return const Center(child: CupertinoActivityIndicator());
+          }
           if (!_store.isConfigured) {
             return _unconfigured(context);
           }

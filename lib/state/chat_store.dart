@@ -76,39 +76,42 @@ class ChatStore extends ChangeNotifier {
   /// 初始化：加载配置，构建上下文。
   /// [position] 非 null 时为持仓分析模式（临时单会话），否则为通用模式（多会话）。
   Future<void> init({Position? position}) async {
-    _position = position;
-    _contextType =
-        position != null ? ChatContextType.position : ChatContextType.general;
-    _config = await _configStore.load();
-    _api?.dispose();
-    if (_config != null && _config!.isValid) {
-      _api = AiApi(config: _config!);
-    } else {
-      _api = null;
-    }
-
-    if (_isGeneral) {
-      // 通用模式：加载历史会话，选最近一个或新建空会话。
-      _sessions.clear();
-      _sessions.addAll(await ChatStorage.loadSessions());
-      if (_sessions.isNotEmpty) {
-        _current = _sessions.first;
+    try {
+      _position = position;
+      _contextType =
+          position != null ? ChatContextType.position : ChatContextType.general;
+      _config = await _configStore.load();
+      _api?.dispose();
+      if (_config != null && _config!.isValid) {
+        _api = AiApi(config: _config!);
       } else {
-        newSession(persist: false);
+        _api = null;
       }
-    } else {
-      // 持仓模式：单个临时会话，不持久化。
-      _current = ChatSession(
-        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        title: '${position!.name} 持仓分析',
-        messages: const [],
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
+
+      if (_isGeneral) {
+        // 通用模式：加载历史会话，选最近一个或新建空会话。
+        _sessions.clear();
+        _sessions.addAll(await ChatStorage.loadSessions());
+        if (_sessions.isNotEmpty) {
+          _current = _sessions.first;
+        } else {
+          newSession(persist: false);
+        }
+      } else {
+        // 持仓模式：单个临时会话，不持久化。
+        _current = ChatSession(
+          id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+          title: '${position!.name} 持仓分析',
+          messages: const [],
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+      }
+      await _rebuildContext();
+    } finally {
+      _initialized = true;
+      _safeNotify();
     }
-    _initialized = true;
-    await _rebuildContext();
-    _safeNotify();
   }
 
   /// 新建会话。通用模式持久化（若 persist=true）；持仓模式不用此方法。
@@ -383,6 +386,10 @@ class ChatStore extends ChangeNotifier {
 
   /// 是否已配置 AI。
   bool get isConfigured => _config != null && _config!.isValid;
+
+  /// 是否已完成初始化（配置加载 + 上下文构建）。
+  /// 未完成时 UI 应显示 loading，而非「去配置」——避免 init 异步未完成时误判。
+  bool get isInitialized => _initialized;
 
   void _safeNotify() {
     if (!_disposed) notifyListeners();
