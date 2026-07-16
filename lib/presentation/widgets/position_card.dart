@@ -50,20 +50,26 @@ class PositionCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 名称行：名称 + 徽章 + 按钮，垂直居中对齐（图标中心与名称中心齐平）。
+        // 名称行：左侧名称+徽章（Expanded 占满），右侧按钮，垂直居中对齐。
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Flexible(
-              child: Text(position.name,
-                  style: AppTextStyles.cardTitle,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1),
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(position.name,
+                        style: AppTextStyles.cardTitle,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1),
+                  ),
+                  if (status != _CardStatus.normal) ...[
+                    const SizedBox(width: 8),
+                    _statusBadge(status),
+                  ],
+                ],
+              ),
             ),
-            if (status != _CardStatus.normal) ...[
-              const SizedBox(width: 8),
-              _statusBadge(status),
-            ],
             const SizedBox(width: 4),
             IconButton(
               icon: const Icon(CupertinoIcons.chat_bubble, size: 20),
@@ -148,8 +154,18 @@ class PositionCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 3),
-        Text(position.code, style: AppTextStyles.subtitle),
-        Text('${position.remainingQuantity}股', style: AppTextStyles.subtitle),
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                '${position.code} · ${position.remainingQuantity}股',
+                style: AppTextStyles.subtitle,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -389,18 +405,13 @@ class PositionCard extends StatelessWidget {
           _badge('确认中', AppTheme.nearTakeProfit),
         ],
         const SizedBox(width: 8),
-        // 成本用 FittedBox 缩放适应空间，不截断；限定最大宽避免挤掉盈亏。
-        // 与当前价下底对齐（Row 已是 CrossAxisAlignment.end）。
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 90),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.bottomLeft,
-            child: Text(
-              '成本 ${position.costPrice.toStringAsFixed(2)}',
-              style: AppTextStyles.caption,
-              maxLines: 1,
-            ),
+        // 成本：普通 Text，与当前价同为 Text，end 对齐下文字底齐平。
+        Flexible(
+          child: Text(
+            '成本 ${position.costPrice.toStringAsFixed(2)}',
+            style: AppTextStyles.caption,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ),
         const SizedBox(width: 8),
@@ -429,20 +440,17 @@ class PositionCard extends StatelessWidget {
     );
   }
 
-  /// 紧凑状态小标（价格行内，文案尽量短避免小屏溢出）。
-  /// 下移 2px 补偿自身 vertical padding，使文字底边与当前价文字底边齐平。
+  /// 紧凑状态小标（价格行内）。padding 垂直方向用 1，文字 height 撑开，
+  /// 使文字底边尽量贴近 Container 底，与当前价文字底在 end 对齐下齐平。
   Widget _badge(String text, Color color) {
-    return Transform.translate(
-      offset: const Offset(0, 2),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(text,
-            style: const TextStyle(fontSize: 10, color: Colors.white, height: 1)),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
       ),
+      child: Text(text,
+          style: const TextStyle(fontSize: 10, color: Colors.white, height: 1.5)),
     );
   }
 
