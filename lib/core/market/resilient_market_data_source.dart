@@ -57,6 +57,17 @@ class ResilientMarketDataSource implements MarketDataSource {
   @override
   Future<MarketOverview> fetchMarketOverview() async {
     final p = await _primary.fetchMarketOverview();
+    // 东财指数缺失（限流）但板块有：用腾讯补指数，避免大盘数据全空。
+    if (p.indices.isEmpty && p.topSectors.isNotEmpty) {
+      final t = await _fallback.fetchMarketOverview();
+      if (t.indices.isNotEmpty) {
+        return MarketOverview(
+          indices: t.indices,
+          topSectors: p.topSectors,
+          bottomSectors: p.bottomSectors,
+        );
+      }
+    }
     if (!p.isEmpty) return p;
     return _fallback.fetchMarketOverview();
   }
