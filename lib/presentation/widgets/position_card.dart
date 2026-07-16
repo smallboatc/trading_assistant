@@ -55,11 +55,8 @@ class PositionCard extends StatelessWidget {
             children: [
               Text(position.name, style: AppTextStyles.cardTitle),
               const SizedBox(height: 3),
-              Text(
-                  '${position.code} · ${position.remainingQuantity}股 · 成本${position.costPrice.toStringAsFixed(2)}',
-                  style: AppTextStyles.subtitle,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1),
+              Text('${position.code} · ${position.remainingQuantity}股',
+                  style: AppTextStyles.subtitle),
             ],
           ),
         ),
@@ -452,6 +449,23 @@ class PositionCard extends StatelessWidget {
           const SizedBox(width: 6),
           _badge('确认中', AppTheme.nearTakeProfit),
         ],
+        const SizedBox(width: 8),
+        // 成本用 FittedBox 缩放适应空间，不截断；限定最大宽避免挤掉盈亏。
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 90),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '成本 ${position.costPrice.toStringAsFixed(2)}',
+                style: AppTextStyles.caption,
+                maxLines: 1,
+              ),
+            ),
+          ),
+        ),
         const SizedBox(width: 8),
         const Spacer(),
         Column(
