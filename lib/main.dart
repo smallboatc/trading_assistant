@@ -49,10 +49,15 @@ class TradingAssistantApp extends StatelessWidget {
           },
         ),
         ChangeNotifierProxyProvider<AppStore, ChatStore>(
-          create: (ctx) => ChatStore(
-            dataSource: src,
-            appStore: ctx.read<AppStore>(),
-          ),
+          create: (ctx) {
+            final store = ChatStore(
+              dataSource: src,
+              appStore: ctx.read<AppStore>(),
+            );
+            // 通用模式：启动即加载历史会话。
+            store.init();
+            return store;
+          },
           update: (_, appStore, prev) => prev ?? ChatStore(
             dataSource: src,
             appStore: appStore,

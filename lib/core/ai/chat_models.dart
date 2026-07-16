@@ -42,6 +42,19 @@ class ChatMessage {
         'role': role == ChatRole.user ? 'user' : 'assistant',
         'content': content,
       };
+
+  /// 序列化（持久化用）。流式状态不持久化。
+  Map<String, dynamic> toJson() => {
+        'role': role.index,
+        'content': content,
+        'timestamp': timestamp.toIso8601String(),
+      };
+
+  factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(
+        role: ChatRole.values[j['role'] as int],
+        content: j['content'] as String,
+        timestamp: DateTime.parse(j['timestamp'] as String),
+      );
 }
 
 /// AI 服务配置。

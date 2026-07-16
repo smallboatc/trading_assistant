@@ -18,10 +18,13 @@ import '../models/strategy_config.dart';
 class PositionStorage {
   static Database? _database;
 
-  static Future<Database> get _db async {
+  /// 暴露数据库连接（ChatStorage 等其他存储复用）。
+  static Future<Database> get database async {
     _database ??= await _initDatabase();
     return _database!;
   }
+
+  static Future<Database> get _db => database;
 
   static Future<Database> _initDatabase() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -73,6 +76,15 @@ class PositionStorage {
           CREATE TABLE meta (
             key   TEXT PRIMARY KEY,
             value INTEGER NOT NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE chat_sessions (
+            id            TEXT PRIMARY KEY,
+            title         TEXT NOT NULL,
+            messages_json TEXT NOT NULL,
+            created_at    TEXT NOT NULL,
+            updated_at    TEXT NOT NULL
           )
         ''');
       },

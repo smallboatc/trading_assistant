@@ -204,5 +204,67 @@ class AiApi {
     return true;
   }
 
+  /// 用首条用户消息生成会话摘要标题（非流式，max_tokens 小）。
+  /// 返回标题字符串；失败抛异常（调用方回退截取）。
+  Future<String?> generateTitle(String firstUserMsg) async {
+    final url = Uri.parse(
+      _isAnthropic
+          ? '${config.baseUrl}/messages'
+          : '${config.baseUrl}/chat/completions',
+    );
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (_isAnthropic) {
+      headers['x-api-key'] = config.apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+      headers['anthropic-dangerous-direct-browser-access'] = 'true';
+    } else {
+      headers['Authorization'] = 'Bearer ${config.apiKey}';
+    }
+
+    final prompt = '请用不超过20个中文字概括以下提问的主题，直接输出标题，'
+        '不要引号、不要标点、不要「标题」二字：\n$firstUserMsg';
+    final body = _isAnthropic
+        ? jsonEncode({
+            'model': config.model,
+            'max_tokens': 50,
+            'system': '你是标题生成器，只输出简短标题。',
+            'messages': [
+              {'role': 'user', 'content': prompt}
+            ],
+          })
+        : jsonEncode({
+            'model': config.model,
+            'max_tokens': 50,
+            'messages': [
+              {'role': 'system', 'content': '你是标题生成器，只输出简短标题。'},
+              {'role': 'user', 'content': prompt}
+            ],
+          });
+
+    final response = await _client
+        .post(url, headers: headers, body: body)
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200) return null;
+    try {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      if (_isAnthropic) {
+        final content = json['content'] as List<dynamic>?;
+        if (content != null && content.isNotEmpty) {
+          return (content[0] as Map<String, dynamic>)['text'] as String?;
+        }
+      } else {
+        final choices = json['choices'] as List<dynamic>?;
+        if (choices != null && choices.isNotEmpty) {
+          return (choices[0] as Map<String, dynamic>)['message']
+              ?['content'] as String?;
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
   void dispose() => _client.close();
 }

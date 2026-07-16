@@ -5,15 +5,17 @@ import 'package:flutter/foundation.dart';
 import '../core/ai/ai_api.dart';
 import '../core/ai/ai_config_store.dart';
 import '../core/ai/chat_models.dart';
+import '../core/ai/chat_session.dart';
 import '../core/ai/context_builder.dart';
 import '../core/market/market_data_source.dart';
 import '../core/models/position.dart';
+import '../core/storage/chat_storage.dart';
 import 'app_store.dart';
 
 /// 聊天状态。ChangeNotifier 管理，与 AppStore 同级。
 ///
-/// 负责管理消息列表、流式接收、上下文构建与注入。
-/// 详见产品设计文档 AI 辅助决策。
+/// 通用模式（底部 AI tab）支持多会话：新建/历史列表/切换/删除，持久化到 sqflite，
+/// 标题由首条 AI 回复后自动生成摘要。持仓模式（卡片「问 AI」）为临时单会话，不持久化。
 class ChatStore extends ChangeNotifier {
   ChatStore({
     required this.dataSource,
@@ -28,8 +30,17 @@ class ChatStore extends ChangeNotifier {
   final AppStore appStore;
   final AiConfigStore _configStore;
 
-  final List<ChatMessage> _messages = [];
-  List<ChatMessage> get messages => List.unmodifiable(_messages);
+  /// 所有会话（仅通用模式持久化；持仓模式为单临时会话）。
+  final List<ChatSession> _sessions = [];
+  List<ChatSession> get sessions => List.unmodifiable(_sessions);
+
+  /// 当前会话。
+  ChatSession? _current;
+  ChatSession? get current => _current;
+
+  /// 当前消息列表（当前会话的）。
+  List<ChatMessage> get messages =>
+      List.unmodifiable(_current?.messages ?? const []);
 
   bool _isStreaming = false;
   bool get isStreaming => _isStreaming;
@@ -45,12 +56,13 @@ class ChatStore extends ChangeNotifier {
   Position? _position;
   Position? get position => _position;
 
-  /// 缓存的 system prompt（进入聊天时构建一次，多轮复用）。
+  /// 缓存的 system prompt（进入聊天/切换会话时构建，多轮复用）。
   String? _systemPrompt;
 
   AiApi? _api;
   AiConfig? _config;
   bool _disposed = false;
+  bool _initialized = false;
 
   /// 流式输出的取消订阅（用于 dispose/clear 时中断）。
   StreamSubscription<String>? _streamSub;
@@ -58,31 +70,98 @@ class ChatStore extends ChangeNotifier {
   /// 当前流式生成的完成器（用于 stopStreaming 主动结束 await）。
   Completer<void>? _streamCompleter;
 
+  /// 是否为通用模式（多会话持久化）。持仓模式为临时单会话。
+  bool get _isGeneral => _contextType == ChatContextType.general;
+
   /// 初始化：加载配置，构建上下文。
-  /// [position] 非 null 时为持仓分析模式，否则为通用模式。
+  /// [position] 非 null 时为持仓分析模式（临时单会话），否则为通用模式（多会话）。
   Future<void> init({Position? position}) async {
     _position = position;
     _contextType =
         position != null ? ChatContextType.position : ChatContextType.general;
     _config = await _configStore.load();
-    // Bug 3 修复：重新 init 时先释放旧的 AiApi（http.Client）。
     _api?.dispose();
     if (_config != null && _config!.isValid) {
       _api = AiApi(config: _config!);
     } else {
       _api = null;
     }
+
+    if (_isGeneral) {
+      // 通用模式：加载历史会话，选最近一个或新建空会话。
+      _sessions.clear();
+      _sessions.addAll(await ChatStorage.loadSessions());
+      if (_sessions.isNotEmpty) {
+        _current = _sessions.first;
+      } else {
+        newSession(persist: false);
+      }
+    } else {
+      // 持仓模式：单个临时会话，不持久化。
+      _current = ChatSession(
+        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+        title: '${position!.name} 持仓分析',
+        messages: const [],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }
+    _initialized = true;
     await _rebuildContext();
   }
 
+  /// 新建会话。通用模式持久化（若 persist=true）；持仓模式不用此方法。
+  void newSession({bool persist = true}) {
+    if (_isStreaming) return;
+    final s = ChatSession(
+      id: 'chat_${DateTime.now().millisecondsSinceEpoch}',
+      title: '新聊天',
+      messages: const [],
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    _sessions.insert(0, s);
+    _current = s;
+    if (persist && _isGeneral) {
+      ChatStorage.saveSession(s);
+    }
+    _error = null;
+    _safeNotify();
+  }
+
+  /// 切换到指定会话。
+  Future<void> switchTo(String sessionId) async {
+    if (_isStreaming) return;
+    final target = _sessions.firstWhere(
+      (s) => s.id == sessionId,
+      orElse: () => _current!,
+    );
+    if (target == _current) return;
+    _current = target;
+    _error = null;
+    await _rebuildContext();
+    _safeNotify();
+  }
+
+  /// 删除会话。删除当前会话时切到第一个或新建空会话。
+  Future<void> deleteSession(String sessionId) async {
+    if (_isStreaming) return;
+    _sessions.removeWhere((s) => s.id == sessionId);
+    if (_isGeneral) await ChatStorage.deleteSession(sessionId);
+    if (_current?.id == sessionId) {
+      _current = _sessions.isNotEmpty ? _sessions.first : null;
+      if (_current == null) newSession(persist: false);
+      await _rebuildContext();
+    }
+    _safeNotify();
+  }
+
   /// 配置存储变更回调：重载配置（不重建行情上下文，避免无谓网络请求）。
-  /// 流式输出进行中则跳过，待其结束后下次发送自然生效。
   void _onConfigChanged() {
     if (_disposed || _isStreaming) return;
     _reloadConfig();
   }
 
-  /// 仅重载 AI 配置与 API 客户端，保留已有消息与上下文模式。
   Future<void> _reloadConfig() async {
     _config = await _configStore.load();
     _api?.dispose();
@@ -105,8 +184,7 @@ class ChatStore extends ChangeNotifier {
       final overview = await dataSource.fetchMarketOverview();
       if (_contextType == ChatContextType.position && _position != null) {
         final dailyK = await dataSource.fetchDailyKlines(_position!.code);
-        final monthlyK =
-            await dataSource.fetchMonthlyKlines(_position!.code);
+        final monthlyK = await dataSource.fetchMonthlyKlines(_position!.code);
         final sector = await dataSource.fetchSector(_position!.code);
         _systemPrompt = ContextBuilder.buildPositionContext(
           position: _position!,
@@ -122,7 +200,6 @@ class ChatStore extends ChangeNotifier {
         );
       }
     } catch (e) {
-      // 上下文构建失败不阻断聊天，使用最简 prompt。
       _systemPrompt = '你是一位专业的 A 股交易顾问，请用 Markdown 格式回复。';
     }
   }
@@ -130,6 +207,7 @@ class ChatStore extends ChangeNotifier {
   /// 发送消息。
   Future<void> send(String text) async {
     if (text.trim().isEmpty || _isStreaming) return;
+    if (_current == null) return;
 
     if (_api == null) {
       _error = '请先在设置中配置 AI 服务';
@@ -138,21 +216,19 @@ class ChatStore extends ChangeNotifier {
     }
 
     _error = null;
-    _messages.add(ChatMessage(role: ChatRole.user, content: text));
-    // 占位的 AI 消息，流式填充。
-    final aiMsg = ChatMessage(
-      role: ChatRole.assistant,
-      content: '',
-      isStreaming: true,
-    );
-    _messages.add(aiMsg);
+    final msgs = _current!.messages;
+    final isFirstReply = msgs.isEmpty;
+    msgs.add(ChatMessage(role: ChatRole.user, content: text));
+    final aiMsg = ChatMessage(role: ChatRole.assistant, content: '', isStreaming: true);
+    msgs.add(aiMsg);
+    _current!.updatedAt = DateTime.now();
     _isStreaming = true;
+    _persistCurrent();
     _safeNotify();
 
     final buffer = StringBuffer();
-    final apiMessages = _messages
-        .where((m) => !m.isStreaming || m.content.isNotEmpty)
-        .toList();
+    final apiMessages =
+        msgs.where((m) => !m.isStreaming || m.content.isNotEmpty).toList();
 
     try {
       final stream = _api!.chatStream(
@@ -160,7 +236,7 @@ class ChatStore extends ChangeNotifier {
         systemPrompt: _systemPrompt,
       );
 
-      // Bug 4 修复：per-chunk 超时，防止连接中途 stall 导致永久挂起。
+      // per-chunk 超时，防止连接中途 stall 永久挂起。
       Timer? watchdog;
       void resetWatchdog() {
         watchdog?.cancel();
@@ -176,10 +252,9 @@ class ChatStore extends ChangeNotifier {
         (chunk) {
           resetWatchdog();
           buffer.write(chunk);
-          // Bug 1 修复：列表可能被 clear 清空，检查越界。
-          if (_messages.isEmpty) return;
-          final lastIdx = _messages.length - 1;
-          _messages[lastIdx] = aiMsg.copyWith(
+          if (msgs.isEmpty) return;
+          final lastIdx = msgs.length - 1;
+          msgs[lastIdx] = aiMsg.copyWith(
             content: buffer.toString(),
             isStreaming: true,
           );
@@ -191,11 +266,9 @@ class ChatStore extends ChangeNotifier {
         },
         onDone: () {
           watchdog?.cancel();
-          // Bug 1 修复：流结束时列表可能已被 clear。
-          if (_messages.isNotEmpty) {
-            final lastIdx = _messages.length - 1;
-            _messages[lastIdx] =
-                _messages[lastIdx].copyWith(isStreaming: false);
+          if (msgs.isNotEmpty) {
+            final lastIdx = msgs.length - 1;
+            msgs[lastIdx] = msgs[lastIdx].copyWith(isStreaming: false);
           }
           if (!completer.isCompleted) completer.complete();
         },
@@ -203,10 +276,20 @@ class ChatStore extends ChangeNotifier {
       );
 
       await completer.future;
+
+      // 首条 AI 回复完成后，生成摘要标题（仅通用模式、且标题仍是「新聊天」）。
+      if (_isGeneral &&
+          isFirstReply &&
+          buffer.toString().trim().isNotEmpty &&
+          _current!.title == '新聊天') {
+        await _generateTitle(text);
+      }
+      _current!.updatedAt = DateTime.now();
+      _persistCurrent();
     } catch (e) {
-      if (_messages.isNotEmpty) {
-        final lastIdx = _messages.length - 1;
-        _messages[lastIdx] = ChatMessage(
+      if (msgs.isNotEmpty) {
+        final lastIdx = msgs.length - 1;
+        msgs[lastIdx] = ChatMessage(
           role: ChatRole.assistant,
           content: '⚠️ 请求失败：$e',
           isStreaming: false,
@@ -217,13 +300,45 @@ class ChatStore extends ChangeNotifier {
       _isStreaming = false;
       _streamSub = null;
       _streamCompleter = null;
+      _persistCurrent();
       _safeNotify();
     }
   }
 
-  /// 清空对话。流式输出中时仅清空消息、中断流，不触发 RangeError。
+  /// 用 AI 生成会话摘要标题。失败则回退为首条消息截取。
+  Future<void> _generateTitle(String firstUserMsg) async {
+    if (_api == null || _current == null) return;
+    try {
+      final title = await _api!.generateTitle(firstUserMsg);
+      if (title != null && title.trim().isNotEmpty && !_disposed) {
+        _current!.title = title.trim().replaceAll(RegExp(r'["\n]'), '');
+        if (title.trim().length > 30) {
+          _current!.title = '${_current!.title.substring(0, 30)}…';
+        }
+        _persistCurrent();
+        _safeNotify();
+      }
+    } catch (_) {
+      // 回退：首条消息截取。
+      if (_current != null) {
+        _current!.title = firstUserMsg.length > 20
+            ? '${firstUserMsg.substring(0, 20)}…'
+            : firstUserMsg;
+        _persistCurrent();
+        _safeNotify();
+      }
+    }
+  }
+
+  /// 持久化当前会话（仅通用模式）。
+  void _persistCurrent() {
+    if (_isGeneral && _current != null && _initialized) {
+      ChatStorage.saveSession(_current!);
+    }
+  }
+
+  /// 清空当前对话。流式中先中断。
   void clear() {
-    // Bug 1 修复：先中断正在进行的流。
     _streamSub?.cancel();
     _streamSub = null;
     if (_streamCompleter != null && !_streamCompleter!.isCompleted) {
@@ -231,7 +346,11 @@ class ChatStore extends ChangeNotifier {
     }
     _streamCompleter = null;
     _isStreaming = false;
-    _messages.clear();
+    if (_current != null) {
+      _current!.messages.clear();
+      _current!.title = '新聊天';
+      _persistCurrent();
+    }
     _error = null;
     _safeNotify();
   }
@@ -240,29 +359,30 @@ class ChatStore extends ChangeNotifier {
   void stopStreaming() {
     _streamSub?.cancel();
     _streamSub = null;
-    if (_isStreaming && _messages.isNotEmpty) {
-      final lastIdx = _messages.length - 1;
-      _messages[lastIdx] = _messages[lastIdx].copyWith(isStreaming: false);
+    if (_isStreaming && _current != null && _current!.messages.isNotEmpty) {
+      final msgs = _current!.messages;
+      final lastIdx = msgs.length - 1;
+      msgs[lastIdx] = msgs[lastIdx].copyWith(isStreaming: false);
     }
     _isStreaming = false;
     if (_streamCompleter != null && !_streamCompleter!.isCompleted) {
       _streamCompleter!.complete();
     }
+    _persistCurrent();
     _safeNotify();
   }
 
-  /// 顶部显示的上下文标题。
+  /// 顶部显示的标题。
   String get contextTitle {
     if (_contextType == ChatContextType.position && _position != null) {
       return '${_position!.name} 持仓分析';
     }
-    return '市场概览';
+    return _current?.title ?? 'AI 助手';
   }
 
   /// 是否已配置 AI。
   bool get isConfigured => _config != null && _config!.isValid;
 
-  // Bug 2 修复：dispose 后不再调 notifyListeners。
   void _safeNotify() {
     if (!_disposed) notifyListeners();
   }

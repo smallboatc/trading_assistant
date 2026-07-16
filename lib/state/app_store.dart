@@ -88,6 +88,7 @@ class AppStore extends ChangeNotifier {
       createdAt: at,
     );
     pos.highestPrice = price;
+    pos.currentPrice = price; // 初始用买入价，卡片立刻有盈亏显示；真实价随后续 tick 更新。
     _positions.insert(0, pos);
     notifyListeners();
     _persist();
@@ -97,7 +98,8 @@ class AppStore extends ChangeNotifier {
     return pos;
   }
 
-  /// 立即评估持仓（fire-and-forget），用于录入后快速出线。
+  /// 录入后立即用成本价评估（fire-and-forget），让卡片快速显示止损止盈线
+  /// （ATR 用真实日K）。真实盈亏由首轮并行 tick（startMonitoring 立即触发）快速补上。
   Future<void> _evaluateNow(Position pos, double price) async {
     try {
       final alert = await _engine.evaluateWith(pos, price);
@@ -284,12 +286,17 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> _runOnce() async {
-    var changed = false;
-    for (final pos in _positions) {
-      if (pos.isClosed) continue;
+    if (_positions.isEmpty) return;
+    // 并行 tick 所有未了结持仓，避免多持仓串行等网络（N 个持仓耗时≈1 个）。
+    final active = _positions.where((p) => !p.isClosed).toList();
+    if (active.isEmpty) return;
+    final results = await Future.wait(active.map((pos) async {
       final alert = await _engine.tick(pos);
+      return (pos, alert);
+    }));
+    // 串行处理结果（避免并发修改 _alerts）。
+    for (final (pos, alert) in results) {
       // tick 总会更新 currentPrice/止损止盈线/marketClosed，需刷新 UI。
-      changed = true;
       if (alert != null) {
         // 分批止盈不走去重（档位单调递增天然不重复）；其余同类型 pending 则去重。
         final dedup = alert.type != AlertType.takeProfitTarget;
@@ -304,7 +311,7 @@ class AppStore extends ChangeNotifier {
         pos.lastAlertId = null;
       }
     }
-    if (changed) notifyListeners();
+    notifyListeners();
     _persist();
   }
 

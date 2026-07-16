@@ -52,7 +52,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initChat() async {
-    await _store.init(position: widget.position);
+    // 持仓模式：自建临时 store 需 init；通用模式：全局 store 已在 main.dart init。
+    if (_localStore != null) {
+      await _localStore!.init(position: widget.position);
+    }
   }
 
   @override
@@ -79,14 +82,32 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     // 持仓模式用本地 store 监听；通用模式用全局 provider。
     final storeListenable = _localStore ?? context.read<ChatStore>();
+    final isGeneral = widget.position == null;
     return Scaffold(
       resizeToAvoidBottomInset: true,
+      drawer: isGeneral ? _buildSessionsDrawer(context) : null,
       appBar: AppBar(
+        leading: isGeneral
+            ? IconButton(
+                icon: const Icon(CupertinoIcons.list_bullet, size: 22),
+                tooltip: '历史聊天',
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              )
+            : null,
         title: ListenableBuilder(
           listenable: storeListenable,
-          builder: (context, child) => Text(_store.contextTitle),
+          builder: (context, child) => Text(
+            _store.contextTitle,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         actions: [
+          if (isGeneral)
+            IconButton(
+              icon: const Icon(CupertinoIcons.add, size: 24),
+              tooltip: '新聊天',
+              onPressed: () => _store.newSession(),
+            ),
           if (_store.messages.isNotEmpty)
             IconButton(
               icon: const Icon(CupertinoIcons.delete, size: 20),
@@ -244,6 +265,118 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty || _store.isStreaming) return;
     _controller.clear();
     _store.send(text);
+  }
+
+  /// 历史聊天抽屉（仅通用模式）。
+  Widget _buildSessionsDrawer(BuildContext context) {
+    final store = _store;
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                children: [
+                  const Text('历史聊天',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(CupertinoIcons.add_circled, size: 24),
+                    tooltip: '新聊天',
+                    color: AppTheme.systemBlue,
+                    onPressed: () {
+                      store.newSession();
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListenableBuilder(
+                listenable: store,
+                builder: (context, _) {
+                  final sessions = store.sessions;
+                  if (sessions.isEmpty) {
+                    return const Center(
+                      child: Text('暂无历史聊天',
+                          style: AppTextStyles.subtitle),
+                    );
+                  }
+                  return ListView.separated(
+                    itemCount: sessions.length,
+                    separatorBuilder: (_, _) =>
+                        const Divider(height: 1, indent: 16),
+                    itemBuilder: (context, i) {
+                      final s = sessions[i];
+                      final isActive = store.current?.id == s.id;
+                      final preview = s.messages.isEmpty
+                          ? '新对话'
+                          : s.messages.last.content;
+                      return ListTile(
+                        selected: isActive,
+                        selectedTileColor: AppTheme.systemBlue.withAlpha(20),
+                        title: Text(
+                          s.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight:
+                                isActive ? FontWeight.w600 : FontWeight.w400,
+                          ),
+                        ),
+                        subtitle: Text(
+                          preview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(CupertinoIcons.delete, size: 18),
+                          onPressed: () => _confirmDeleteSession(context, store, s.id),
+                        ),
+                        onTap: () {
+                          store.switchTo(s.id);
+                          Navigator.of(context).pop();
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteSession(
+      BuildContext context, ChatStore store, String sessionId) {
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('删除此聊天？'),
+        content: const Text('该聊天的所有消息将被清除，无法恢复。'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              store.deleteSession(sessionId);
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showClearConfirm(BuildContext context) {
