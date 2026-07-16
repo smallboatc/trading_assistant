@@ -48,12 +48,27 @@ class PositionCard extends StatelessWidget {
 
   Widget _header(BuildContext context, _CardStatus status) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(position.name, style: AppTextStyles.cardTitle),
+              // 股票名称 + 状态徽章同一行。
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(position.name,
+                        style: AppTextStyles.cardTitle,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1),
+                  ),
+                  if (status != _CardStatus.normal) ...[
+                    const SizedBox(width: 8),
+                    _statusBadge(status),
+                  ],
+                ],
+              ),
               const SizedBox(height: 3),
               Text(position.code, style: AppTextStyles.subtitle),
               Text('${position.remainingQuantity}股',
@@ -61,12 +76,11 @@ class PositionCard extends StatelessWidget {
             ],
           ),
         ),
-        _statusBadge(status),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         IconButton(
           icon: const Icon(CupertinoIcons.chat_bubble, size: 20),
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           tooltip: '问 AI',
           color: AppTheme.systemBlue,
           onPressed: () => Navigator.of(context).push(
@@ -382,18 +396,16 @@ class PositionCard extends StatelessWidget {
         ],
         const SizedBox(width: 8),
         // 成本用 FittedBox 缩放适应空间，不截断；限定最大宽避免挤掉盈亏。
+        // 与当前价下底对齐（Row 已是 CrossAxisAlignment.end）。
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 90),
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '成本 ${position.costPrice.toStringAsFixed(2)}',
-                style: AppTextStyles.caption,
-                maxLines: 1,
-              ),
+            alignment: Alignment.bottomLeft,
+            child: Text(
+              '成本 ${position.costPrice.toStringAsFixed(2)}',
+              style: AppTextStyles.caption,
+              maxLines: 1,
             ),
           ),
         ),
