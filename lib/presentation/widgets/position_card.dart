@@ -47,116 +47,109 @@ class PositionCard extends StatelessWidget {
   }
 
   Widget _header(BuildContext context, _CardStatus status) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 股票名称 + 状态徽章同一行。
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(position.name,
-                        style: AppTextStyles.cardTitle,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1),
-                  ),
-                  if (status != _CardStatus.normal) ...[
-                    const SizedBox(width: 8),
-                    _statusBadge(status),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 3),
-              Text(position.code, style: AppTextStyles.subtitle),
-              Text('${position.remainingQuantity}股',
-                  style: AppTextStyles.subtitle),
-            ],
-          ),
-        ),
-        const SizedBox(width: 4),
-        IconButton(
-          icon: const Icon(CupertinoIcons.chat_bubble, size: 20),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 30, minHeight: 24),
-          visualDensity: VisualDensity.compact,
-          tooltip: '问 AI',
-          color: AppTheme.systemBlue,
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ChatScreen(position: position),
+        // 名称行：名称 + 徽章 + 按钮，垂直居中对齐（图标中心与名称中心齐平）。
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(position.name,
+                  style: AppTextStyles.cardTitle,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1),
             ),
-          ),
-        ),
-        PopupMenuButton<String>(
-          icon: const Icon(CupertinoIcons.ellipsis, size: 20),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 30, minHeight: 24),
-          color: AppTheme.systemGray,
-          itemBuilder: (context) => [
-            if (position.handled)
-              const PopupMenuItem(
-                value: 'reopen',
-                child: Row(
-                  children: [
-                    Icon(CupertinoIcons.arrow_clockwise, size: 18,
-                        color: AppTheme.systemBlue),
-                    SizedBox(width: 8),
-                    Text('恢复监控'),
-                  ],
-                ),
-              )
-            else ...[
-              const PopupMenuItem(
-                value: 'addFill',
-                child: Row(
-                  children: [
-                    Icon(CupertinoIcons.add_circled, size: 18,
-                        color: AppTheme.systemBlue),
-                    SizedBox(width: 8),
-                    Text('加仓'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(CupertinoIcons.pencil, size: 18,
-                        color: AppTheme.systemBlue),
-                    SizedBox(width: 8),
-                    Text('编辑持仓'),
-                  ],
-                ),
-              ),
+            if (status != _CardStatus.normal) ...[
+              const SizedBox(width: 8),
+              _statusBadge(status),
             ],
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(CupertinoIcons.delete, size: 18,
-                      color: AppTheme.nearStop),
-                  SizedBox(width: 8),
-                  Text('删除持仓'),
-                ],
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(CupertinoIcons.chat_bubble, size: 20),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+              visualDensity: VisualDensity.compact,
+              tooltip: '问 AI',
+              color: AppTheme.systemBlue,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChatScreen(position: position),
+                ),
               ),
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(CupertinoIcons.ellipsis, size: 20),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+              color: AppTheme.systemGray,
+              itemBuilder: (context) => [
+                if (position.handled)
+                  const PopupMenuItem(
+                    value: 'reopen',
+                    child: Row(
+                      children: [
+                        Icon(CupertinoIcons.arrow_clockwise, size: 18,
+                            color: AppTheme.systemBlue),
+                        SizedBox(width: 8),
+                        Text('恢复监控'),
+                      ],
+                    ),
+                  )
+                else ...[
+                  const PopupMenuItem(
+                    value: 'addFill',
+                    child: Row(
+                      children: [
+                        Icon(CupertinoIcons.add_circled, size: 18,
+                            color: AppTheme.systemBlue),
+                        SizedBox(width: 8),
+                        Text('加仓'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(CupertinoIcons.pencil, size: 18,
+                            color: AppTheme.systemBlue),
+                        SizedBox(width: 8),
+                        Text('编辑持仓'),
+                      ],
+                    ),
+                  ),
+                ],
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(CupertinoIcons.delete, size: 18,
+                          color: AppTheme.nearStop),
+                      SizedBox(width: 8),
+                      Text('删除持仓'),
+                    ],
+                  ),
+                ),
+              ],
+              onSelected: (value) {
+                switch (value) {
+                  case 'reopen':
+                    context.read<AppStore>().reopenPosition(position.id);
+                  case 'addFill':
+                    _showAddFillDialog(context);
+                  case 'edit':
+                    _showEditDialog(context);
+                  case 'delete':
+                    _showDeleteConfirm(context);
+                }
+              },
             ),
           ],
-          onSelected: (value) {
-            switch (value) {
-              case 'reopen':
-                context.read<AppStore>().reopenPosition(position.id);
-              case 'addFill':
-                _showAddFillDialog(context);
-              case 'edit':
-                _showEditDialog(context);
-              case 'delete':
-                _showDeleteConfirm(context);
-            }
-          },
         ),
+        const SizedBox(height: 3),
+        Text(position.code, style: AppTextStyles.subtitle),
+        Text('${position.remainingQuantity}股', style: AppTextStyles.subtitle),
       ],
     );
   }
@@ -437,16 +430,19 @@ class PositionCard extends StatelessWidget {
   }
 
   /// 紧凑状态小标（价格行内，文案尽量短避免小屏溢出）。
+  /// 下移 2px 补偿自身 vertical padding，使文字底边与当前价文字底边齐平。
   Widget _badge(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      alignment: Alignment.bottomCenter,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(6),
+    return Transform.translate(
+      offset: const Offset(0, 2),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(text,
+            style: const TextStyle(fontSize: 10, color: Colors.white, height: 1)),
       ),
-      child: Text(text,
-          style: const TextStyle(fontSize: 10, color: Colors.white, height: 1)),
     );
   }
 
