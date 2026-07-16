@@ -36,7 +36,7 @@ class MonitoringEngine {
     if (!trading) {
       await _evaluate(position, price,
           '${position.id}_closed_${DateTime.now().millisecondsSinceEpoch}',
-          immediate: false);
+          immediate: false, detect: false);
       return null;
     }
     return _evaluate(position, price,
@@ -55,7 +55,7 @@ class MonitoringEngine {
   }
 
   Future<Alert?> _evaluate(Position position, double price, String alertId,
-      {required bool immediate}) async {
+      {required bool immediate, bool detect = true}) async {
     final klines = await _ensureKlines(position.code);
     if (klines.isEmpty) return null;
     final evaluator = StrategyEvaluator(position);
@@ -64,6 +64,7 @@ class MonitoringEngine {
       currentPrice: price,
       alertId: alertId,
       immediate: immediate,
+      detect: detect,
     );
     position.stopPrice = result.stopPrice;
     position.takeProfitPrice = result.takeProfitPrice;

@@ -56,6 +56,8 @@ class ResilientMarketDataSource implements MarketDataSource {
 
   @override
   Future<MarketOverview> fetchMarketOverview() async {
+    // TODO: AI 上下文大盘/板块数据偶发拉不到（东财限流 + 腾讯降级仍可能空），
+    //   导致问大盘时 AI 无数据。需接入更稳定的行情源（官方接口/服务端中转）彻底解决。
     final p = await _primary.fetchMarketOverview();
     // 东财指数缺失（限流）但板块有：用腾讯补指数，避免大盘数据全空。
     if (p.indices.isEmpty && p.topSectors.isNotEmpty) {

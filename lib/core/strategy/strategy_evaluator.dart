@@ -40,6 +40,7 @@ class StrategyEvaluator {
     required double currentPrice,
     required String alertId,
     bool immediate = false,
+    bool detect = true,
   }) {
     final cfg = position.strategy;
     final cost = position.costPrice;
@@ -171,8 +172,11 @@ class StrategyEvaluator {
     }
 
     // ---- 触发检测 ----
+    // detect=false（盘后）时只算止损止盈线，不检测触发、不推进确认计时，
+    // 避免盘后收盘价在止损线下方时「确认中」标签常驻却无告警。
     Alert? alert;
 
+    if (detect) {
     // 1) 止损触发（含维持N分钟确认）
     if (currentPrice <= stopPrice) {
       final confirmed = _checkStopConfirmation(immediate, cfg.stopConfirmMinutes);
@@ -247,6 +251,10 @@ class StrategyEvaluator {
           );
         }
       }
+    }
+    } else {
+      // 盘后不检测触发：清空破位计时，避免「确认中」常驻。
+      position.stopBreachSince = null;
     }
 
     return StrategyEvaluation(
