@@ -80,7 +80,8 @@ class PositionCard extends StatelessWidget {
         IconButton(
           icon: const Icon(CupertinoIcons.chat_bubble, size: 20),
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          constraints: const BoxConstraints(minWidth: 30, minHeight: 24),
+          visualDensity: VisualDensity.compact,
           tooltip: '问 AI',
           color: AppTheme.systemBlue,
           onPressed: () => Navigator.of(context).push(
@@ -92,7 +93,7 @@ class PositionCard extends StatelessWidget {
         PopupMenuButton<String>(
           icon: const Icon(CupertinoIcons.ellipsis, size: 20),
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          constraints: const BoxConstraints(minWidth: 30, minHeight: 24),
           color: AppTheme.systemGray,
           itemBuilder: (context) => [
             if (position.handled)
@@ -438,13 +439,14 @@ class PositionCard extends StatelessWidget {
   /// 紧凑状态小标（价格行内，文案尽量短避免小屏溢出）。
   Widget _badge(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      alignment: Alignment.bottomCenter,
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(text,
-          style: const TextStyle(fontSize: 10, color: Colors.white)),
+          style: const TextStyle(fontSize: 10, color: Colors.white, height: 1)),
     );
   }
 
