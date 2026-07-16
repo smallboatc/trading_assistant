@@ -55,7 +55,8 @@ class PositionCard extends StatelessWidget {
             children: [
               Text(position.name, style: AppTextStyles.cardTitle),
               const SizedBox(height: 3),
-              Text('${position.code} · ${position.remainingQuantity}股',
+              Text(position.code, style: AppTextStyles.subtitle),
+              Text('${position.remainingQuantity}股',
                   style: AppTextStyles.subtitle),
             ],
           ),
