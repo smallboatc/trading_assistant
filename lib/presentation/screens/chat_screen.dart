@@ -104,21 +104,6 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ),
         actions: [
-          if (isGeneral)
-            IconButton(
-              icon: const Icon(CupertinoIcons.add, size: 24),
-              tooltip: '新聊天',
-              onPressed: () {
-                _store.newSession();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('已新建聊天'),
-                    behavior: SnackBarBehavior.floating,
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
-            ),
           if (_store.messages.isNotEmpty)
             IconButton(
               icon: const Icon(CupertinoIcons.delete, size: 20),
