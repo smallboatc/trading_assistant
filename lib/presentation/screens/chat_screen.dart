@@ -276,7 +276,9 @@ class _ChatScreenState extends State<ChatScreen> {
   /// 历史聊天抽屉（仅通用模式）。
   Widget _buildSessionsDrawer(BuildContext context) {
     final store = _store;
+    final drawerWidth = MediaQuery.sizeOf(context).width * 0.6;
     return Drawer(
+      width: drawerWidth,
       child: SafeArea(
         child: Column(
           children: [
