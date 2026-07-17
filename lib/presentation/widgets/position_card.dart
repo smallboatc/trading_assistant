@@ -383,58 +383,59 @@ class PositionCard extends StatelessWidget {
 
   Widget _priceRow(double pnl, double pnlPct) {
     final cur = position.currentPrice;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          cur == null ? '—' : cur.toStringAsFixed(2),
-          style: AppTextStyles.numberLg,
-        ),
-        if (position.priceStale) ...[
-          const SizedBox(width: 6),
-          _badge('延迟', AppTheme.systemGray),
-        ],
-        if (position.marketClosed) ...[
-          const SizedBox(width: 6),
-          _badge('收盘', AppTheme.systemGray2),
-        ],
-        if (position.stopBreachSince != null &&
-            position.distanceToStop != null &&
-            position.distanceToStop! < 0) ...[
-          const SizedBox(width: 6),
-          _badge('确认中', AppTheme.nearTakeProfit),
-        ],
-        const SizedBox(width: 8),
-        // 成本：普通 Text，与当前价同为 Text，end 对齐下文字底齐平。
-        Flexible(
-          child: Text(
-            '成本 ${position.costPrice.toStringAsFixed(2)}',
-            style: AppTextStyles.caption,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
-        ),
-        const SizedBox(width: 8),
-        const Spacer(),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        // 第一行：当前价 + 状态badge（center 对齐）+ 右侧盈亏。
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              '${pnl >= 0 ? '+' : ''}${pnl.toStringAsFixed(0)}',
-              style: AppTextStyles.numberMd.copyWith(
-                color: AppTheme.pnlColor(position.floatingPnlPercent),
-              ),
+              cur == null ? '—' : cur.toStringAsFixed(2),
+              style: AppTextStyles.numberLg,
             ),
-            const SizedBox(height: 2),
-            Text(
-              '${pnlPct >= 0 ? '+' : ''}${pnlPct.toStringAsFixed(2)}%',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.pnlColor(position.floatingPnlPercent),
-              ),
+            if (position.priceStale) ...[
+              const SizedBox(width: 6),
+              _badge('延迟', AppTheme.systemGray),
+            ],
+            if (position.marketClosed) ...[
+              const SizedBox(width: 6),
+              _badge('收盘', AppTheme.systemGray2),
+            ],
+            if (position.stopBreachSince != null &&
+                position.distanceToStop != null &&
+                position.distanceToStop! < 0) ...[
+              const SizedBox(width: 6),
+              _badge('确认中', AppTheme.nearTakeProfit),
+            ],
+            const Spacer(),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${pnl >= 0 ? '+' : ''}${pnl.toStringAsFixed(0)}',
+                  style: AppTextStyles.numberMd.copyWith(
+                    color: AppTheme.pnlColor(position.floatingPnlPercent),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${pnlPct >= 0 ? '+' : ''}${pnlPct.toStringAsFixed(2)}%',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.pnlColor(position.floatingPnlPercent),
+                  ),
+                ),
+              ],
             ),
           ],
+        ),
+        const SizedBox(height: 4),
+        // 第二行：成本（独立行，完整显示不截断）。
+        Text(
+          '成本 ${position.costPrice.toStringAsFixed(2)}',
+          style: AppTextStyles.caption,
         ),
       ],
     );
