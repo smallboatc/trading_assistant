@@ -5,8 +5,9 @@ import '../theme/app_theme.dart';
 
 /// 历史记录与复盘。详见产品设计文档 3.6。
 ///
-/// V3 功能：持仓归档、完整周期、触发记录、止盈止损线变化历史。
-/// V1 为占位页面。
+/// TODO(V3): 实现持仓归档（确认平仓/删除时归档而非真删）、完整生命周期、
+/// 触发记录、止盈止损线变化历史。当前已从底部导航移除（占位页无用），
+/// 待 V3 实现后重新加回 main.dart 的 _screens 与 NavigationDestination。
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
 

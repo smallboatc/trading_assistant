@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'presentation/screens/alerts_screen.dart';
 import 'presentation/screens/chat_screen.dart';
 import 'presentation/screens/dashboard_screen.dart';
-import 'presentation/screens/history_screen.dart';
 import 'core/market/market_data_source.dart';
 import 'core/market/market_overview.dart';
 import 'core/market/resilient_market_data_source.dart';
@@ -88,7 +87,6 @@ class _HomeShellState extends State<_HomeShell> {
     DashboardScreen(),
     AlertsScreen(),
     ChatScreen(),
-    HistoryScreen(),
   ];
 
   @override
@@ -122,10 +120,6 @@ class _HomeShellState extends State<_HomeShell> {
             icon: Icon(CupertinoIcons.chat_bubble),
             selectedIcon: Icon(CupertinoIcons.chat_bubble_fill),
             label: 'AI',
-          ),
-          const NavigationDestination(
-            icon: Icon(CupertinoIcons.clock),
-            label: '历史',
           ),
         ],
       ),
