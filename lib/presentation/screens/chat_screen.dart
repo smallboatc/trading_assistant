@@ -90,7 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
         leading: isGeneral
             ? Builder(
                 builder: (scaffoldCtx) => IconButton(
-                  icon: const Icon(CupertinoIcons.list_bullet, size: 22),
+                  icon: const Icon(CupertinoIcons.sidebar_left, size: 22),
                   tooltip: '历史聊天',
                   onPressed: () => Scaffold.of(scaffoldCtx).openDrawer(),
                 ),
@@ -108,7 +108,16 @@ class _ChatScreenState extends State<ChatScreen> {
             IconButton(
               icon: const Icon(CupertinoIcons.add, size: 24),
               tooltip: '新聊天',
-              onPressed: () => _store.newSession(),
+              onPressed: () {
+                _store.newSession();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('已新建聊天'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
             ),
           if (_store.messages.isNotEmpty)
             IconButton(
