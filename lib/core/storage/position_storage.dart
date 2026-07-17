@@ -31,7 +31,7 @@ class PositionStorage {
     final path = p.join(dir.path, 'trading_assistant.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE positions (
@@ -87,6 +87,20 @@ class PositionStorage {
             updated_at    TEXT NOT NULL
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        // 旧数据库（v1，无 chat_sessions 表）升级到 v2 时补建。
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+              id            TEXT PRIMARY KEY,
+              title         TEXT NOT NULL,
+              messages_json TEXT NOT NULL,
+              created_at    TEXT NOT NULL,
+              updated_at    TEXT NOT NULL
+            )
+          ''');
+        }
       },
     );
   }

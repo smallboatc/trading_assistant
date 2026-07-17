@@ -68,7 +68,7 @@ void main() {
     p.marketClosed = true;
     await tester.pumpWidget(_wrap(p));
     await tester.pumpAndSettle();
-    expect(find.text('收盘'), findsOneWidget);
+    expect(find.text('已收盘'), findsOneWidget);
     expect(find.text('成本 1680.00'), findsOneWidget);
   });
 

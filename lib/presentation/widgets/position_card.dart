@@ -400,13 +400,7 @@ class PositionCard extends StatelessWidget {
             ],
             if (position.marketClosed) ...[
               const SizedBox(width: 6),
-              _badge('收盘', AppTheme.systemGray2),
-            ],
-            if (position.stopBreachSince != null &&
-                position.distanceToStop != null &&
-                position.distanceToStop! < 0) ...[
-              const SizedBox(width: 6),
-              _badge('确认中', AppTheme.nearTakeProfit),
+              _badge('已收盘', AppTheme.systemGray2),
             ],
             const Spacer(),
             Column(
@@ -499,14 +493,18 @@ class PositionCard extends StatelessWidget {
     );
   }
 
-  // ---- 状态推断（简化版，V1 基于距离阈值）----
+  // ---- 状态推断 ----
   _CardStatus _statusOf(Position p) {
     if (p.handled) return _CardStatus.closed;
     if (p.lastAlertId != null) return _CardStatus.triggered;
     if (p.breakevenStageReached > 0) return _CardStatus.protected;
     final dStop = p.distanceToStop;
+    // 已跌破止损线（距离≤0）→ 待确认；接近止损（0<距离<3%）→ 接近止损。
+    if (dStop != null && dStop <= 0) return _CardStatus.triggered;
     if (dStop != null && dStop < 0.03) return _CardStatus.nearStop;
     final dTp = p.distanceToTakeProfit;
+    // 已触发止盈（距离≤0）→ 待确认；接近止盈（0<距离<3%）→ 接近止盈。
+    if (dTp != null && dTp <= 0) return _CardStatus.triggered;
     if (dTp != null && dTp < 0.03) return _CardStatus.nearTakeProfit;
     return _CardStatus.normal;
   }
