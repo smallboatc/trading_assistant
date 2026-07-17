@@ -12,9 +12,14 @@ import 'position_storage.dart';
 /// messages 存 JSON 列（含 role/content/timestamp）。
 class ChatStorage {
   static Future<List<ChatSession>> loadSessions() async {
-    final db = await PositionStorage.database;
-    final rows = await db.query('chat_sessions', orderBy: 'updated_at DESC');
-    return rows.map(_fromRow).toList();
+    try {
+      final db = await PositionStorage.database;
+      final rows = await db.query('chat_sessions', orderBy: 'updated_at DESC');
+      return rows.map(_fromRow).toList();
+    } catch (_) {
+      // 表不存在或数据库未就绪时返回空，不阻断聊天。
+      return [];
+    }
   }
 
   static Future<void> saveSession(ChatSession s) async {

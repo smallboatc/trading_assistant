@@ -311,7 +311,7 @@ class ChatStore extends ChangeNotifier {
       _isStreaming = false;
       _streamSub = null;
       _streamCompleter = null;
-      _persistCurrent();
+      await _persistCurrent();
       _safeNotify();
     }
   }
@@ -342,9 +342,13 @@ class ChatStore extends ChangeNotifier {
   }
 
   /// 持久化当前会话（仅通用模式）。
-  void _persistCurrent() {
+  Future<void> _persistCurrent() async {
     if (_isGeneral && _current != null && _initialized) {
-      ChatStorage.saveSession(_current!);
+      try {
+        await ChatStorage.saveSession(_current!);
+      } catch (_) {
+        // 持久化失败不阻断聊天。
+      }
     }
   }
 
