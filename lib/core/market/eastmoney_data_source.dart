@@ -65,7 +65,8 @@ class EastMoneyDataSource implements MarketDataSource {
   @override
   Future<List<Kline>> fetchDailyKlines(String code, {int count = 30}) async {
     final secid = MarketCodes.eastmoneySecid(code);
-    final beg = _ymd(DateTime.now().subtract(const Duration(days: 90)));
+    // 取约 60 自然日（覆盖 30 交易日含节假日），再 _tail 取最后 count 根。
+    final beg = _ymd(DateTime.now().subtract(const Duration(days: 60)));
     final end = _ymd(DateTime.now());
     final url = Uri.parse(
       '$_klineHost/api/qt/stock/kline/get?secid=$secid'
