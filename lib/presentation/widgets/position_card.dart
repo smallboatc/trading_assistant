@@ -329,11 +329,11 @@ class PositionCard extends StatelessWidget {
                     ),
                     PresetPlan.trendConservative: Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('趋势-守'),
+                      child: Text('中线'),
                     ),
                     PresetPlan.trendAggressive: Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('趋势-激'),
+                      child: Text('趋势短线'),
                     ),
                   },
                 ),

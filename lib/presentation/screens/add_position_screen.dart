@@ -320,9 +320,9 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
   }
 
   String _presetName(PresetPlan p) => switch (p) {
-        PresetPlan.trendConservative => '趋势-保守',
-        PresetPlan.trendAggressive => '趋势-激进',
-        PresetPlan.swingStandard => '波段-标准',
+        PresetPlan.trendConservative => '中线',
+        PresetPlan.trendAggressive => '趋势短线',
+        PresetPlan.swingStandard => '波段',
       };
 
   String _presetDesc(PresetPlan p) => switch (p) {
