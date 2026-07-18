@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/ai/ai_api.dart';
 import '../../core/ai/ai_config_store.dart';
@@ -28,6 +29,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _saving = false;
   bool _testing = false;
   bool _obscureApiKey = true;
+  /// 是否已忽略电池优化（后台保活所需）。null=未检测（iOS等无此概念）。
+  bool? _ignoreBatteryOpt;
   // null=未测试，true=通过，false=失败
   bool? _connectionTestPassed;
 
@@ -57,6 +60,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadConfig();
+    _checkBatteryOpt();
+  }
+
+  /// 检测是否已忽略电池优化（后台保活所需）。
+  Future<void> _checkBatteryOpt() async {
+    if (!mounted) return;
+    final status = await Permission.ignoreBatteryOptimizations.status;
+    if (mounted) setState(() => _ignoreBatteryOpt = status.isGranted);
+  }
+
+  /// 跳转到电池优化设置，引导用户允许后台运行。
+  Future<void> _requestBatteryOpt() async {
+    await Permission.ignoreBatteryOptimizations.request();
+    await _checkBatteryOpt();
   }
 
   @override
@@ -167,6 +184,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const _SectionHeader(title: 'AI 配置'),
           const SizedBox(height: 8),
           _buildApiKeyCard(),
+          const SizedBox(height: 24),
+          const _SectionHeader(title: '后台保活'),
+          const SizedBox(height: 8),
+          _buildBackgroundCard(),
           const SizedBox(height: 24),
           const _SectionHeader(title: '说明'),
           const SizedBox(height: 8),
@@ -373,6 +394,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: TextStyle(
                 color: color, fontWeight: FontWeight.w500, fontSize: 12)),
       ],
+    );
+  }
+
+  /// 后台保活引导：检测电池优化状态，未授权则提示并跳转设置。
+  Widget _buildBackgroundCard() {
+    final granted = _ignoreBatteryOpt == true;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: (granted ? AppTheme.normal : AppTheme.nearStop)
+                      .withAlpha(26),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  granted ? Icons.check_circle : Icons.battery_alert,
+                  color: granted ? AppTheme.normal : AppTheme.nearStop,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('后台保活',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
+                    SizedBox(height: 4),
+                    Text(
+                      '允许后台运行，退后台仍能监控止损止盈并推送通知',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (granted)
+            Row(children: [
+              Icon(Icons.check_circle, size: 16, color: AppTheme.normal),
+              const SizedBox(width: 6),
+              Text('已允许后台运行',
+                  style: TextStyle(color: AppTheme.normal, fontSize: 13)),
+            ])
+          else ...[
+            Text(
+              '未开启后台保活，App 退后台可能被系统冻结，'
+              '无法及时收到止损止盈通知。建议开启「允许后台运行」。',
+              style: TextStyle(color: AppTheme.nearStop, fontSize: 12, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _requestBatteryOpt,
+                icon: const Icon(Icons.settings_power),
+                label: const Text('去开启后台运行'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
