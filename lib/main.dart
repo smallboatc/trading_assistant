@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
@@ -13,6 +14,7 @@ import 'core/market/holiday_service.dart';
 import 'core/models/kline.dart';
 import 'core/models/strategy_config.dart';
 import 'core/notifications/notification_service.dart';
+import 'core/notifications/background_monitor_service.dart';
 import 'presentation/theme/app_theme.dart';
 import 'state/app_store.dart';
 import 'state/chat_store.dart';
@@ -24,6 +26,8 @@ void main() async {
   // 加载当年节假日数据（NateScarlet/holiday-cn，自动更新，用于交易时段判断）。
   // 失败则降级为固定规则（周末休市），不影响启动。
   HolidayService.loadCurrentYear();
+  // 初始化后台监控保活服务（Android 前台服务，App 退后台仍能监控）。
+  await BackgroundMonitorService.init();
   // 预览模式：注入假数据源 + 预置持仓，用于截图验证 UI（--dart-define=PREVIEW=true）。
   const preview = bool.fromEnvironment('PREVIEW', defaultValue: false);
   runApp(TradingAssistantApp(preview: preview));
@@ -99,7 +103,7 @@ class _HomeShell extends StatefulWidget {
   State<_HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<_HomeShell> {
+class _HomeShellState extends State<_HomeShell> with WidgetsBindingObserver {
   int _index = 0;
 
   static const _screens = <Widget>[
@@ -114,6 +118,35 @@ class _HomeShellState extends State<_HomeShell> {
     // 首次进入请求通知权限（Android 13+ / iOS 需运行时授权）。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService.requestPermissions();
+    });
+    // 监听前后台切换：退后台启动保活服务，回前台停止。
+    WidgetsBinding.instance.addObserver(this);
+    _listenBackgroundTick();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      // 退后台：启动保活服务接管监控。
+      BackgroundMonitorService.start();
+    } else if (state == AppLifecycleState.resumed) {
+      // 回前台：停止保活服务，前台 tick 接管。
+      BackgroundMonitorService.stop();
+      context.read<AppStore>().startMonitoring();
+    }
+  }
+
+  /// 监听后台服务发来的 'tick'，触发 AppStore 跑一轮监控。
+  void _listenBackgroundTick() {
+    FlutterBackgroundService().on('tick').listen((event) {
+      if (!mounted) return;
+      context.read<AppStore>().runOnceNow();
     });
   }
 

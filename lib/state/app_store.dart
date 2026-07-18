@@ -307,6 +307,9 @@ class AppStore extends ChangeNotifier {
     _timer = null;
   }
 
+  /// 触发一轮监控（供后台保活服务 'tick' 调用，前台也能手动触发）。
+  Future<void> runOnceNow() => _runOnce();
+
   Future<void> _runOnce() async {
     if (_positions.isEmpty) return;
     // 并行 tick 所有未了结持仓，避免多持仓串行等网络（N 个持仓耗时≈1 个）。

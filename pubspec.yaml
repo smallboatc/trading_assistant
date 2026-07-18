@@ -57,6 +57,9 @@ dependencies:
   # 系统本地通知（止损止盈触发时弹系统通知，后台也能收到）。
   flutter_local_notifications: ^18.0.1
 
+  # 后台保活（Android 前台服务，App 退后台仍能监控+通知）。
+  flutter_background_service: ^5.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
