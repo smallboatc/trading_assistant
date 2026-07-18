@@ -326,9 +326,12 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
       };
 
   String _presetDesc(PresetPlan p) => switch (p) {
-        PresetPlan.trendConservative => '钱德勒止损 22日×3，纯移动止盈，硬止损8%',
-        PresetPlan.trendAggressive => 'ATR止损 14日×1.5，纯移动止盈，硬止损6%',
-        PresetPlan.swingStandard => 'ATR止损 14日×2.5，分批+移动止盈，硬止损5%',
+        PresetPlan.trendConservative =>
+          'ATR止损 22日×3（自适应），纯移动止盈×3，硬止损12%，保本止损',
+        PresetPlan.trendAggressive =>
+          'ATR止损 14日×2（自适应），纯移动止盈×2.5，硬止损10%，保本止损',
+        PresetPlan.swingStandard =>
+          'ATR止损 14日×2.5（自适应），分批+移动止盈×3，硬止损10%，保本止损',
       };
 
   void _submit() {
