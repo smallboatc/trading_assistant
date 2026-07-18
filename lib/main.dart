@@ -9,6 +9,7 @@ import 'presentation/screens/dashboard_screen.dart';
 import 'core/market/market_data_source.dart';
 import 'core/market/market_overview.dart';
 import 'core/market/resilient_market_data_source.dart';
+import 'core/market/holiday_service.dart';
 import 'core/models/kline.dart';
 import 'core/models/strategy_config.dart';
 import 'core/notifications/notification_service.dart';
@@ -20,6 +21,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // 初始化系统通知（止损止盈触发时弹系统通知）。
   await NotificationService.init();
+  // 加载当年节假日数据（NateScarlet/holiday-cn，自动更新，用于交易时段判断）。
+  // 失败则降级为固定规则（周末休市），不影响启动。
+  HolidayService.loadCurrentYear();
   // 预览模式：注入假数据源 + 预置持仓，用于截图验证 UI（--dart-define=PREVIEW=true）。
   const preview = bool.fromEnvironment('PREVIEW', defaultValue: false);
   runApp(TradingAssistantApp(preview: preview));
