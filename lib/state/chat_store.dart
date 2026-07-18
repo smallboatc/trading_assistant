@@ -59,6 +59,10 @@ class ChatStore extends ChangeNotifier {
   /// 缓存的 system prompt（进入聊天/切换会话时构建，多轮复用）。
   String? _systemPrompt;
 
+  /// 最近一次上下文注入的数据状态（供 UI 显示注入情况）。
+  ContextStatus? _contextStatus;
+  ContextStatus? get contextStatus => _contextStatus;
+
   AiApi? _api;
   AiConfig? _config;
   bool _disposed = false;
@@ -186,10 +190,20 @@ class ChatStore extends ChangeNotifier {
   Future<void> _rebuildContext() async {
     try {
       final overview = await dataSource.fetchMarketOverview();
+      final hasIndex = overview.indices.isNotEmpty;
+      final hasSector = overview.topSectors.isNotEmpty;
       if (_contextType == ChatContextType.position && _position != null) {
         final dailyK = await dataSource.fetchDailyKlines(_position!.code);
         final monthlyK = await dataSource.fetchMonthlyKlines(_position!.code);
         final sector = await dataSource.fetchSector(_position!.code);
+        _contextStatus = ContextStatus(
+          hasIndex: hasIndex,
+          hasSector: hasSector,
+          dailyKlineCount: dailyK.length,
+          monthlyKlineCount: monthlyK.length,
+          stockSector: sector,
+          isPositionMode: true,
+        );
         _systemPrompt = ContextBuilder.buildPositionContext(
           position: _position!,
           dailyKlines: dailyK,
@@ -198,6 +212,14 @@ class ChatStore extends ChangeNotifier {
           overview: overview,
         );
       } else {
+        _contextStatus = ContextStatus(
+          hasIndex: hasIndex,
+          hasSector: hasSector,
+          dailyKlineCount: 0,
+          monthlyKlineCount: 0,
+          stockSector: null,
+          isPositionMode: false,
+        );
         _systemPrompt = ContextBuilder.buildGeneralContext(
           overview: overview,
           store: appStore,
@@ -414,4 +436,29 @@ class ChatStore extends ChangeNotifier {
     _api?.dispose();
     super.dispose();
   }
+}
+
+/// 最近一次上下文注入的数据状态，供 UI 显示注入情况。
+class ContextStatus {
+  const ContextStatus({
+    required this.hasIndex,
+    required this.hasSector,
+    required this.dailyKlineCount,
+    required this.monthlyKlineCount,
+    required this.stockSector,
+    required this.isPositionMode,
+  });
+
+  /// 大盘指数是否注入成功。
+  final bool hasIndex;
+  /// 板块涨跌是否注入成功。
+  final bool hasSector;
+  /// 日K根数（0=未拉到）。
+  final int dailyKlineCount;
+  /// 月K根数。
+  final int monthlyKlineCount;
+  /// 个股所属板块（持仓模式，null=未拉到或非持仓模式）。
+  final String? stockSector;
+  /// 是否持仓模式。
+  final bool isPositionMode;
 }

@@ -137,12 +137,59 @@ class _ChatScreenState extends State<ChatScreen> {
           _scrollToBottom();
           return Column(
             children: [
+              _contextStatusBar(),
               Expanded(child: _messageList()),
               _inputBar(),
             ],
           );
         },
       ),
+    );
+  }
+
+  /// 上下文注入状态条：显示当前注入了哪些数据，让用户感知上下文生效情况。
+  Widget _contextStatusBar() {
+    final status = _store.contextStatus;
+    if (status == null) return const SizedBox.shrink();
+    final items = <_ContextItem>[
+      _ContextItem(
+          label: '大盘', ok: status.hasIndex),
+      _ContextItem(
+          label: '板块', ok: status.hasSector),
+      if (status.isPositionMode) ...[
+        _ContextItem(
+            label: '日K${status.dailyKlineCount}根',
+            ok: status.dailyKlineCount > 0),
+        _ContextItem(
+            label: '月K${status.monthlyKlineCount}根',
+            ok: status.monthlyKlineCount > 0),
+        _ContextItem(
+            label: '所属板块${status.stockSector != null ? '·${status.stockSector}' : ''}',
+            ok: status.stockSector != null),
+      ],
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      color: AppTheme.groupedBackground,
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 4,
+        children: items.map((it) => _contextChip(it)).toList(),
+      ),
+    );
+  }
+
+  Widget _contextChip(_ContextItem it) {
+    final color = it.ok ? AppTheme.normal : AppTheme.nearStop;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(it.ok ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.xmark_circle_fill,
+            size: 13, color: color),
+        const SizedBox(width: 3),
+        Text(it.label, style: TextStyle(fontSize: 11, color: color)),
+      ],
     );
   }
 
@@ -484,4 +531,10 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+}
+
+class _ContextItem {
+  final String label;
+  final bool ok;
+  const _ContextItem({required this.label, required this.ok});
 }
