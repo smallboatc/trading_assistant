@@ -8,6 +8,7 @@ import '../core/models/alert.dart';
 import '../core/models/fill.dart';
 import '../core/models/position.dart';
 import '../core/models/strategy_config.dart';
+import '../core/notifications/notification_service.dart';
 import '../core/storage/position_storage.dart';
 import 'package:flutter/foundation.dart';
 
@@ -258,6 +259,11 @@ class AppStore extends ChangeNotifier {
       if (!pos.handled && (!dedup || !_hasPendingAlert(pos.id, alert.type))) {
         _alerts.insert(0, alert);
         pos.lastAlertId = alert.id;
+        // 弹系统通知（App 在后台也能收到）。
+        NotificationService.showAlert(
+          title: '${pos.name} ${_alertTypeLabel(alert.type)}',
+          body: alert.message,
+        );
       }
     } else if (pos.lastAlertId != null && !_hasAnyPendingAlert(pos.id)) {
       // 价格回升脱离触发区间且无任何待处理提醒：清空标记。
@@ -265,6 +271,22 @@ class AppStore extends ChangeNotifier {
     }
     notifyListeners();
     _persist();
+  }
+
+  String _alertTypeLabel(AlertType type) {
+    switch (type) {
+      case AlertType.hardStop:
+      case AlertType.atrStop:
+        return '止损提醒';
+      case AlertType.trailingTakeProfit:
+        return '止盈提醒';
+      case AlertType.takeProfitTarget:
+        return '分批止盈';
+      case AlertType.breakevenStop:
+        return '保本告知';
+      default:
+        return '交易提醒';
+    }
   }
 
   /// 该持仓是否还有任意类型的未处理提醒（用于清空 lastAlertId 判定）。

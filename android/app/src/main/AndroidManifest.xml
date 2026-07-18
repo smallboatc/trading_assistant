@@ -2,6 +2,8 @@
     <!-- 网络权限：拉取东财/腾讯行情、调用 AI API。release 构建需在 main 中声明，
          否则 debug/profile（含 INTERNET）合并失效后断网。 -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 通知权限（Android 13+ 需运行时申请，止损止盈触发时弹系统通知）。 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="交易助手"
         android:name="${applicationName}"

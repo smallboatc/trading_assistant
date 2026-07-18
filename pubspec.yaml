@@ -54,6 +54,9 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   flutter_markdown: ^0.7.4
 
+  # 系统本地通知（止损止盈触发时弹系统通知，后台也能收到）。
+  flutter_local_notifications: ^18.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

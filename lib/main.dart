@@ -11,11 +11,15 @@ import 'core/market/market_overview.dart';
 import 'core/market/resilient_market_data_source.dart';
 import 'core/models/kline.dart';
 import 'core/models/strategy_config.dart';
+import 'core/notifications/notification_service.dart';
 import 'presentation/theme/app_theme.dart';
 import 'state/app_store.dart';
 import 'state/chat_store.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // 初始化系统通知（止损止盈触发时弹系统通知）。
+  await NotificationService.init();
   // 预览模式：注入假数据源 + 预置持仓，用于截图验证 UI（--dart-define=PREVIEW=true）。
   const preview = bool.fromEnvironment('PREVIEW', defaultValue: false);
   runApp(TradingAssistantApp(preview: preview));
@@ -99,6 +103,15 @@ class _HomeShellState extends State<_HomeShell> {
     AlertsScreen(),
     ChatScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // 首次进入请求通知权限（Android 13+ / iOS 需运行时授权）。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.requestPermissions();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
