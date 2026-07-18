@@ -120,11 +120,8 @@ class ContextBuilder {
   static String _klineSummary(String label, List<Kline> klines) {
     if (klines.isEmpty) return '- $label：数据获取失败';
     final sb = StringBuffer('- $label：');
-    // 取最近 5 根，输出 "日期:收" 摘要。
-    final recent = klines.length > 5
-        ? klines.sublist(klines.length - 5)
-        : klines;
-    sb.write(recent.map((k) => '${k.date}:${_fmt(k.close)}').join(' → '));
+    // 注入全部拉取的 K 线（日K 30 根、月K 12 根），输出 "日期:收" 摘要。
+    sb.write(klines.map((k) => '${k.date}:${_fmt(k.close)}').join(' → '));
     if (klines.isNotEmpty) {
       final high = klines.map((k) => k.high).reduce((a, b) => a > b ? a : b);
       final low = klines.map((k) => k.low).reduce((a, b) => a < b ? a : b);
