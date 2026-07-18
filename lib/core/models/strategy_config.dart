@@ -124,6 +124,7 @@ class StrategyConfig {
           breakevenEnabled: true,
           takeProfitStrategy: TakeProfitStrategy.trailingOnly,
           trailingMultiple: 3.0,
+          atrAdaptive: false,
         );
       case PresetPlan.trendAggressive:
         return const StrategyConfig(
@@ -134,6 +135,7 @@ class StrategyConfig {
           breakevenEnabled: true,
           takeProfitStrategy: TakeProfitStrategy.trailingOnly,
           trailingMultiple: 2.5,
+          atrAdaptive: false,
         );
       case PresetPlan.swingStandard:
         return const StrategyConfig(
@@ -144,6 +146,7 @@ class StrategyConfig {
           breakevenEnabled: true,
           takeProfitStrategy: TakeProfitStrategy.batchAndTrailing,
           trailingMultiple: 3.0,
+          atrAdaptive: false,
         );
     }
   }

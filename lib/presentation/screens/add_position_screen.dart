@@ -255,7 +255,7 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
           Text(
             stop == null
                 ? '填入买入价后显示硬止损线；ATR 止损与移动止盈需行情接入后实时计算。'
-                : 'ATR 自适应按波动率分档(2.0/2.5/3.5倍)；浮盈达标自动保本上移止损线；'
+                : '浮盈达标自动保本上移止损线；'
                     '${cfg.takeProfitStrategy == TakeProfitStrategy.batchAndTrailing ? "分批止盈到档提醒" : "纯移动止盈"}。'
                     '止损跌破维持${cfg.stopConfirmMinutes}分钟才触发。',
             style: AppTextStyles.caption,
@@ -327,11 +327,11 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
 
   String _presetDesc(PresetPlan p) => switch (p) {
         PresetPlan.trendConservative =>
-          'ATR止损 22日（倍数按波动自适应2-3.5），移动止盈，硬止损12%，保本',
+          'ATR止损 22日×3.0，移动止盈×3，硬止损12%，保本止损',
         PresetPlan.trendAggressive =>
-          'ATR止损 14日（倍数按波动自适应2-3.5），移动止盈，硬止损10%，保本',
+          'ATR止损 14日×2.0，移动止盈×2.5，硬止损10%，保本止损',
         PresetPlan.swingStandard =>
-          'ATR止损 14日（倍数按波动自适应2-3.5），分批+移动止盈，硬止损10%，保本',
+          'ATR止损 14日×2.5，分批+移动止盈×3，硬止损10%，保本止损',
       };
 
   void _submit() {
