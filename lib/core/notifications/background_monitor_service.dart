@@ -91,6 +91,8 @@ class BackgroundMonitorService {
     await _createChannel();
     // 后台 Isolate 需加载节假日数据。
     await HolidayService.loadCurrentYear();
+    // 后台 Isolate 初始化通知插件（用于前台服务自定义通知 + 告警通知）。
+    await NotificationService.init();
 
     // 数据源（后台 Isolate 独立实例）。
     final MarketDataSource dataSource = ResilientMarketDataSource();
@@ -101,6 +103,27 @@ class BackgroundMonitorService {
     service.on('stop').listen((event) {
       service.stopSelf();
     });
+
+    // 用自定义前台通知（图标用 notification_icon），覆盖插件默认通知。
+    final plugin = FlutterLocalNotificationsPlugin();
+    if (service is AndroidServiceInstance) {
+      await plugin.show(
+        _notificationId,
+        '交易助手监控中',
+        '正在监控持仓止盈止损',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: '后台监控保活',
+            importance: Importance.low,
+            ongoing: true,
+            icon: '@drawable/notification_icon',
+            largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          ),
+        ),
+      );
+    }
 
     // 立即跑一轮，然后每 15 秒一轮。
     await _runOnceBg(dataSource, lastAlertId);
