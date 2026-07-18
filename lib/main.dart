@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'presentation/screens/alerts_screen.dart';
 import 'presentation/screens/chat_screen.dart';
 import 'presentation/screens/dashboard_screen.dart';
+import 'presentation/screens/settings_screen.dart';
 import 'core/market/market_data_source.dart';
 import 'core/market/market_overview.dart';
 import 'core/market/resilient_market_data_source.dart';
@@ -109,6 +110,7 @@ class _HomeShellState extends State<_HomeShell> with WidgetsBindingObserver {
     DashboardScreen(),
     AlertsScreen(),
     ChatScreen(),
+    SettingsScreen(),
   ];
 
   @override
@@ -169,6 +171,11 @@ class _HomeShellState extends State<_HomeShell> with WidgetsBindingObserver {
             icon: Icon(CupertinoIcons.chat_bubble),
             selectedIcon: Icon(CupertinoIcons.chat_bubble_fill),
             label: 'AI',
+          ),
+          const NavigationDestination(
+            icon: Icon(CupertinoIcons.gear),
+            selectedIcon: Icon(CupertinoIcons.gear_solid),
+            label: '设置',
           ),
         ],
       ),
