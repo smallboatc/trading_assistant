@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/ai/ai_api.dart';
 import '../../core/ai/ai_config_store.dart';
@@ -29,8 +28,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _saving = false;
   bool _testing = false;
   bool _obscureApiKey = true;
-  /// 是否已忽略电池优化（后台保活所需）。null=未检测（iOS等无此概念）。
-  bool? _ignoreBatteryOpt;
   // null=未测试，true=通过，false=失败
   bool? _connectionTestPassed;
 
@@ -60,20 +57,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadConfig();
-    _checkBatteryOpt();
-  }
-
-  /// 检测是否已忽略电池优化（后台保活所需）。
-  Future<void> _checkBatteryOpt() async {
-    if (!mounted) return;
-    final status = await Permission.ignoreBatteryOptimizations.status;
-    if (mounted) setState(() => _ignoreBatteryOpt = status.isGranted);
-  }
-
-  /// 跳转到电池优化设置，引导用户允许后台运行。
-  Future<void> _requestBatteryOpt() async {
-    await Permission.ignoreBatteryOptimizations.request();
-    await _checkBatteryOpt();
   }
 
   @override
@@ -398,8 +381,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// 后台保活引导：检测电池优化状态，未授权则提示并跳转设置。
+  /// 后台保活说明：纯文字引导用户去手机设置开启后台运行（国产ROM各家入口
+  /// 不同，且检测/跳转不准，故只做说明，由用户自行检查开启）。
   Widget _buildBackgroundCard() {
-    final granted = _ignoreBatteryOpt == true;
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.cardBackground,
@@ -414,14 +398,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: (granted ? AppTheme.normal : AppTheme.nearStop)
-                      .withAlpha(26),
+                  color: AppTheme.systemBlue.withAlpha(26),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  granted ? Icons.check_circle : Icons.battery_alert,
-                  color: granted ? AppTheme.normal : AppTheme.nearStop,
-                ),
+                child: const Icon(Icons.battery_saver, color: AppTheme.systemBlue),
               ),
               const SizedBox(width: 16),
               const Expanded(
@@ -433,7 +413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             fontWeight: FontWeight.bold, fontSize: 16)),
                     SizedBox(height: 4),
                     Text(
-                      '允许后台运行，退后台仍能监控止损止盈并推送通知',
+                      '退后台仍能监控止损止盈并推送系统通知',
                       style: TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                   ],
@@ -442,34 +422,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          if (granted)
-            Row(children: [
-              Icon(Icons.check_circle, size: 16, color: AppTheme.normal),
-              const SizedBox(width: 6),
-              Text('已允许后台运行',
-                  style: TextStyle(color: AppTheme.normal, fontSize: 13)),
-            ])
-          else ...[
-            Text(
-              '未开启后台保活，App 退后台可能被系统冻结，'
-              '无法及时收到止损止盈通知。建议开启「允许后台运行」。',
-              style: TextStyle(color: AppTheme.nearStop, fontSize: 12, height: 1.5),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _requestBatteryOpt,
-                icon: const Icon(Icons.settings_power),
-                label: const Text('去开启后台运行'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-          ],
+          Text(
+            '为保证 App 退到后台后仍能实时监控并推送通知，需在手机系统设置里'
+            '允许「交易助手」后台运行。各品牌路径略有不同，一般位于：',
+            style: TextStyle(fontSize: 13, color: AppTheme.labelSecondary, height: 1.6),
+          ),
+          const SizedBox(height: 10),
+          _bullet('设置 → 应用管理 → 交易助手 → 电池/耗电管理 → 允许后台运行'),
+          _bullet('或：设置 → 电池 → 后台耗电管理 → 交易助手 → 允许'),
+          const SizedBox(height: 10),
+          Text(
+            'vivo/OPPO/小米等品牌需同时关闭「省电模式」或将本应用加入'
+            '「自启动白名单」。未开启时退后台可能被系统冻结，无法及时收到提醒。',
+            style: TextStyle(fontSize: 12, color: AppTheme.nearStop, height: 1.6),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bullet(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('·  ', style: TextStyle(color: AppTheme.systemBlue, fontSize: 13)),
+          Expanded(
+            child: Text(text, style: const TextStyle(fontSize: 12, height: 1.5)),
+          ),
         ],
       ),
     );
