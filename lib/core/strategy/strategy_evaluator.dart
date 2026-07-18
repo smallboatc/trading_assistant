@@ -46,14 +46,18 @@ class StrategyEvaluator {
     final cost = position.costPrice;
 
     // 更新持仓期间最高价（用于钱德勒止损 / 移动止盈）。
-    // 用日K区间最高价回填，避免 App 未运行时漏掉中间最高价（tick 实时爬
-    // 会丢失 App 关闭期间的日内最高）。日K high 是交易所真实数据，最准。
+    // 用「建仓日及之后」的日K最高价回填，避免 App 未运行时漏掉中间最高价
+    // （tick 实时爬会丢失 App 关闭期间的日内最高）。日K high 是交易所真实数据。
+    // 只取建仓日之后的K线，避免把建仓前的历史高点算进持仓期间最高价。
     if (position.highestPrice == 0) {
       position.highestPrice = cost;
     }
-    if (klines.isNotEmpty) {
+    final boughtDate = position.createdAt.toIso8601String().substring(0, 10);
+    final holdingKlines =
+        klines.where((k) => k.date.compareTo(boughtDate) >= 0).toList();
+    if (holdingKlines.isNotEmpty) {
       final klineHigh =
-          klines.map((k) => k.high).reduce((a, b) => a > b ? a : b);
+          holdingKlines.map((k) => k.high).reduce((a, b) => a > b ? a : b);
       if (klineHigh > position.highestPrice) {
         position.highestPrice = klineHigh;
       }
