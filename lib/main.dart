@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
@@ -118,10 +117,12 @@ class _HomeShellState extends State<_HomeShell> with WidgetsBindingObserver {
     // 首次进入请求通知权限（Android 13+ / iOS 需运行时授权）。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService.requestPermissions();
+      // 在前台时启动保活服务（Android 14+ 不允许后台启动前台服务）。
+      // 服务常驻，App 退后台后由后台 Isolate 独立跑监控+通知，不依赖主 Isolate。
+      BackgroundMonitorService.start();
     });
-    // 监听前后台切换：退后台启动保活服务，回前台停止。
+    // 监听前后台切换：回前台时补一轮监控（前台 tick 接管）。
     WidgetsBinding.instance.addObserver(this);
-    _listenBackgroundTick();
   }
 
   @override
@@ -132,22 +133,9 @@ class _HomeShellState extends State<_HomeShell> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      // 退后台：启动保活服务接管监控。
-      BackgroundMonitorService.start();
-    } else if (state == AppLifecycleState.resumed) {
-      // 回前台：停止保活服务，前台 tick 接管。
-      BackgroundMonitorService.stop();
+    if (state == AppLifecycleState.resumed) {
       context.read<AppStore>().startMonitoring();
     }
-  }
-
-  /// 监听后台服务发来的 'tick'，触发 AppStore 跑一轮监控。
-  void _listenBackgroundTick() {
-    FlutterBackgroundService().on('tick').listen((event) {
-      if (!mounted) return;
-      context.read<AppStore>().runOnceNow();
-    });
   }
 
   @override

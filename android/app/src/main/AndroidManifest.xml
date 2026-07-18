@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- 网络权限：拉取东财/腾讯行情、调用 AI API。release 构建需在 main 中声明，
          否则 debug/profile（含 INTERNET）合并失效后断网。 -->
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -35,6 +36,15 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- 覆盖 flutter_background_service 的 Service 声明，加 foregroundServiceType。
+             Android 14+ 前台服务必须声明类型，否则启动崩溃。dataSync 用于周期性拉行情。 -->
+        <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="dataSync"
+            tools:replace="android:exported,android:stopWithTask" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
