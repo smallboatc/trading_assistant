@@ -21,7 +21,7 @@ class NotificationService {
   /// 初始化（App 启动时调用一次）。
   static Future<void> init() async {
     if (_initialized) return;
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('@drawable/notification_icon');
     const iosInit = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -71,6 +71,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       autoCancel: true,
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
     );
     const iosDetails = DarwinNotificationDetails();
     const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
