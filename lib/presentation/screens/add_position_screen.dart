@@ -70,6 +70,7 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
       initialDate: _boughtAt,
       firstDate: DateTime(now.year - 5),
       lastDate: now,
+      locale: const Locale('zh', 'CN'),
     );
     if (picked != null) setState(() => _boughtAt = picked);
   }
@@ -79,14 +80,6 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
     final m = _boughtAt.month.toString().padLeft(2, '0');
     final d = _boughtAt.day.toString().padLeft(2, '0');
     return '$y-$m-$d';
-  }
-
-  /// 当前预设的硬止损线预览（成本 × (1 - hardStopPercent)）。
-  /// ATR 止损/移动止盈需行情接入后计算，此处仅展示兜底硬止损。
-  double? get _hardStopPreview {
-    final p = double.tryParse(_price.text.trim());
-    if (p == null || p <= 0) return null;
-    return p * (1 - StrategyConfig.fromPreset(_preset).hardStopPercent);
   }
 
   @override
@@ -191,11 +184,6 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
               icon: const Icon(CupertinoIcons.checkmark_alt, size: 20),
               label: const Text('保存并开始监控'),
             ),
-            const SizedBox(height: 12),
-            const Text(
-              '买入时间默认为当前；分批建仓、自定义参数见 V2。',
-              style: AppTextStyles.caption,
-            ),
           ],
         ),
       ),
@@ -222,10 +210,14 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
     );
   }
 
-  /// 止损止盈线预览：填了买入价后展示硬止损兜底线；ATR/移动止盈需行情。
+  /// 策略预览：分层展示止损止盈策略，填了买入价后显示具体价位。
   Widget _stopPreview() {
     final cfg = StrategyConfig.fromPreset(_preset);
-    final stop = _hardStopPreview;
+    final price = double.tryParse(_price.text.trim());
+    final hasPrice = price != null && price > 0;
+    final hardStop = hasPrice ? price * (1 - cfg.hardStopPercent) : null;
+    final hardStopPct = (cfg.hardStopPercent * 100).toStringAsFixed(0);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -237,56 +229,112 @@ class _AddPositionScreenState extends State<AddPositionScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('策略预览', style: AppTextStyles.body),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _previewChip('硬止损', stop, AppTheme.nearStop),
-              const SizedBox(width: 8),
-              _previewChip('ATR止损', null, AppTheme.nearTakeProfit,
-                  hint: cfg.atrAdaptive
-                      ? '${cfg.atrPeriod}日·自适应'
-                      : '${cfg.atrPeriod}日×${cfg.atrMultiple}'),
-              const SizedBox(width: 8),
-              _previewChip('移动止盈', null, AppTheme.nearTakeProfit,
-                  hint: '×${cfg.trailingMultiple}'),
-            ],
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
-            stop == null
-                ? '填入买入价后显示硬止损线；ATR 止损与移动止盈需行情接入后实时计算。'
-                : '浮盈达标自动保本上移止损线；'
-                    '${cfg.takeProfitStrategy == TakeProfitStrategy.batchAndTrailing ? "分批止盈到档提醒" : "纯移动止盈"}。'
-                    '止损跌破维持${cfg.stopConfirmMinutes}分钟才触发。',
+            hasPrice ? '填入买入价后，止损/止盈线随行情实时计算' : '填入买入价后显示具体止损价',
             style: AppTextStyles.caption,
+          ),
+          const SizedBox(height: 12),
+          // 止损层
+          _previewRow(
+            icon: CupertinoIcons.shield_fill,
+            color: AppTheme.nearStop,
+            title: '止损线',
+            value: hardStop != null
+                ? '≈ ${hardStop.toStringAsFixed(2)} 元'
+                : '成本下方 $hardStopPct%',
+            desc: '取硬止损与 ATR 止损中更紧者',
+          ),
+          const SizedBox(height: 10),
+          _previewRow(
+            icon: CupertinoIcons.chart_bar_alt_fill,
+            color: AppTheme.nearStop,
+            title: '硬止损（兜底）',
+            value: '成本 × (1 − $hardStopPct%)'
+                '${hardStop != null ? ' = ${hardStop.toStringAsFixed(2)}' : ''}',
+            desc: '永远在，极端情况兜底',
+          ),
+          const SizedBox(height: 10),
+          _previewRow(
+            icon: CupertinoIcons.waveform,
+            color: AppTheme.nearStop,
+            title: 'ATR 止损',
+            value: '成本 − ATR × ${cfg.atrMultiple.toStringAsFixed(1)}'
+                '（${cfg.atrPeriod}日）',
+            desc: '随波动自适应，跌破即止损',
+          ),
+          const SizedBox(height: 10),
+          _previewRow(
+            icon: CupertinoIcons.arrow_up_circle_fill,
+            color: AppTheme.systemBlue,
+            title: '保本止损',
+            value: '浮盈达标后止损线上移',
+            desc: '1倍风险保本 / 2倍锁半利 / 3倍锁70%',
+          ),
+          const SizedBox(height: 14),
+          // 止盈层
+          _previewRow(
+            icon: CupertinoIcons.flag_fill,
+            color: AppTheme.nearTakeProfit,
+            title: '止盈',
+            value: cfg.takeProfitStrategy == TakeProfitStrategy.batchAndTrailing
+                ? '分批止盈 + 移动止盈'
+                : '纯移动止盈 ×${cfg.trailingMultiple.toStringAsFixed(1)}',
+            desc: cfg.takeProfitStrategy == TakeProfitStrategy.batchAndTrailing
+                ? '盈亏比2:1卖40%、4:1卖30%，剩余移动止盈'
+                : '从最高价回撤 ${cfg.trailingMultiple.toStringAsFixed(1)} 倍ATR止盈',
+          ),
+          const SizedBox(height: 10),
+          _previewRow(
+            icon: CupertinoIcons.timer,
+            color: AppTheme.systemGray,
+            title: '止损确认',
+            value: '维持 ${cfg.stopConfirmMinutes} 分钟',
+            desc: '跌破止损线后需持续${cfg.stopConfirmMinutes}分钟才告警，过滤插针',
           ),
         ],
       ),
     );
   }
 
-  Widget _previewChip(String label, double? value, Color color, {String? hint}) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(AppTheme.chipRadius),
+  Widget _previewRow({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String value,
+    required String desc,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      value,
+                      style: TextStyle(fontSize: 12, color: color),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(desc, style: AppTextStyles.caption),
+            ],
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: AppTextStyles.caption.copyWith(color: color)),
-            const SizedBox(height: 2),
-            Text(
-              value == null
-                  ? (hint ?? '待行情')
-                  : value.toStringAsFixed(2),
-              style: AppTextStyles.chip.copyWith(color: color),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 

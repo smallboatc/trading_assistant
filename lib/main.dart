@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'presentation/screens/alerts_screen.dart';
@@ -67,6 +68,16 @@ class TradingAssistantApp extends StatelessWidget {
         title: '交易助手',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('zh', 'CN'),
+          Locale('en', 'US'),
+        ],
+        locale: const Locale('zh', 'CN'),
         home: const _HomeShell(),
       ),
     );
