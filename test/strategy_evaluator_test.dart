@@ -329,10 +329,11 @@ void main() {
 
   // ---- 移动止盈：未盈利不设止盈；已盈利锁定利润、永远高于止损 ----
   test('移动止盈：未盈利时不设止盈线（避免建仓即误触发）', () {
-    // cost=10, highestPrice=cost=10（未盈利）→ 移动止盈返回 null。
+    // cost=10，日K high=cost=10（无波动，未盈利）→ highestPrice 保持 10 → 移动止盈 null。
+    // 用 tr=0 的平K线，避免日K high 超过成本被当作已盈利。
     final pos = _posWith(0.05, TakeProfitStrategy.trailingOnly);
     final result = StrategyEvaluator(pos).evaluate(
-      klines: _flatKlines(30, 0.5),
+      klines: _flatKlines(30, 0),
       currentPrice: 10,
       alertId: 'a',
     );
