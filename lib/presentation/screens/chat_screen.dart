@@ -34,6 +34,9 @@ class _ChatScreenState extends State<ChatScreen> {
   /// 持仓模式下自建的独立 store；通用模式下为 null（用全局 provider）。
   ChatStore? _localStore;
 
+  /// 上下文横幅是否被用户关闭。
+  bool _bannerDismissed = false;
+
   /// 当前实际使用的 store。
   ChatStore get _store =>
       _localStore ?? context.read<ChatStore>();
@@ -147,15 +150,13 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  /// 上下文注入状态条：显示当前注入了哪些数据，让用户感知上下文生效情况。
+  /// 上下文注入横幅：挂在 AppBar 下方顶部，显示注入数据项 + 刷新提示，可关闭。
   Widget _contextStatusBar() {
     final status = _store.contextStatus;
-    if (status == null) return const SizedBox.shrink();
+    if (status == null || _bannerDismissed) return const SizedBox.shrink();
     final items = <_ContextItem>[
-      _ContextItem(
-          label: '大盘', ok: status.hasIndex),
-      _ContextItem(
-          label: '板块', ok: status.hasSector),
+      _ContextItem(label: '大盘', ok: status.hasIndex),
+      _ContextItem(label: '板块', ok: status.hasSector),
       if (status.isPositionMode) ...[
         _ContextItem(
             label: '日K${status.dailyKlineCount}根',
@@ -168,14 +169,41 @@ class _ChatScreenState extends State<ChatScreen> {
             ok: status.stockSector != null),
       ],
     ];
+    final hasMissing = items.any((it) => !it.ok);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
       color: AppTheme.groupedBackground,
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 4,
-        children: items.map((it) => _contextChip(it)).toList(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 4,
+                  children: items.map(_contextChip).toList(),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(CupertinoIcons.xmark, size: 16),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => setState(() => _bannerDismissed = true),
+              ),
+            ],
+          ),
+          if (hasMissing)
+            Padding(
+              padding: const EdgeInsets.only(right: 28, top: 2),
+              child: Text(
+                '部分数据未取到，可点右上角刷新按钮重试',
+                style: TextStyle(fontSize: 10, color: AppTheme.nearStop),
+              ),
+            ),
+        ],
       ),
     );
   }
