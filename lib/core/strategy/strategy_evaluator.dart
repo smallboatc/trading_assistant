@@ -52,7 +52,10 @@ class StrategyEvaluator {
     if (position.highestPrice == 0) {
       position.highestPrice = cost;
     }
-    final boughtDate = position.createdAt.toIso8601String().substring(0, 10);
+    // 建仓日按北京时间折算（与交易时段判断一致），避免时区漂移取错K线。
+    final bj = position.createdAt.toUtc().add(const Duration(hours: 8));
+    final boughtDate =
+        '${bj.year}-${bj.month.toString().padLeft(2, '0')}-${bj.day.toString().padLeft(2, '0')}';
     final holdingKlines =
         klines.where((k) => k.date.compareTo(boughtDate) >= 0).toList();
     if (holdingKlines.isNotEmpty) {
@@ -179,12 +182,19 @@ class StrategyEvaluator {
                       cfg.takeProfitTargets.length));
       if (useTrailing) {
         final realizedGain = position.highestPrice - cost;
-        if (realizedGain > 0) {
+        // 仅当浮盈超过 1 个 ATR（趋势明确）才设移动止盈，避免建仓当天盘中
+        // 冲高回落的最高价导致建仓即误触发。
+        if (realizedGain > atr) {
           final lockedProfit = max(realizedGain * 0.6, cost * 0.08);
           final tpFloor = max(stopPrice + atr * 0.5, cost + lockedProfit);
           final raw = position.highestPrice - atr * cfg.trailingMultiple;
-          takeProfitPrice = raw < tpFloor ? tpFloor : raw;
-          takeProfitType = AlertType.trailingTakeProfit;
+          var tp = raw < tpFloor ? tpFloor : raw;
+          // 止盈线必须高于当前价：若算出的止盈线 ≤ 现价（如建仓当天冲高后回落
+          // 到现价附近），不设止盈线，避免建仓即触发。
+          if (tp > currentPrice) {
+            takeProfitPrice = tp;
+            takeProfitType = AlertType.trailingTakeProfit;
+          }
         }
       }
     }

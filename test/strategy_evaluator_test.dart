@@ -342,19 +342,21 @@ void main() {
 
   test('移动止盈：已盈利时锁定利润，止盈高于止损且不低于成本', () {
     // cost=10, hardStop 5%→9.5, 关自适应 atr=0.5 倍数2.5 → atrStop=8.75, baseStop=9.5。
-    // 涨到 highestPrice=13（已实现浮盈3），裸移动止盈=13-0.5*3=11.5；
-    // 锁定利润=max(3*0.6, 10*0.08)=max(1.8,0.8)=1.8；下限=max(9.5+0.25, 10+1.8)=max(9.75,11.8)=11.8；
-    // 11.5 < 11.8 → 取 11.8（锁定1.8利润，高于止损9.5、高于成本10）。
+    // 涨到 highestPrice=13（已实现浮盈3 > ATR 0.5，满足移动止盈门槛），
+    // 裸移动止盈=13-0.5*3=11.5；锁定利润=max(3*0.6,10*0.08)=1.8；
+    // 下限=max(9.5+0.25,10+1.8)=11.8；11.5<11.8→取11.8。
+    // 现价11 < 止盈线11.8（止盈线须高于现价才设），止盈=11.8。
     final pos = _posWith(0.05, TakeProfitStrategy.trailingOnly);
     pos.highestPrice = 13; // 模拟持仓期间涨到13
     final result = StrategyEvaluator(pos).evaluate(
       klines: _flatKlines(30, 0.5),
-      currentPrice: 12,
+      currentPrice: 11,
       alertId: 'a',
     );
     expect(result.stopPrice, 9.5);
     expect(result.takeProfitPrice, closeTo(11.8, 1e-9));
     expect(result.takeProfitPrice! > result.stopPrice!, isTrue); // 高于止损
     expect(result.takeProfitPrice! > 10, isTrue); // 高于成本（锁定利润）
+    expect(result.takeProfitPrice! > 11, isTrue); // 高于现价（否则建仓即触发）
   });
 }
