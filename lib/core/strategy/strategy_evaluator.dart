@@ -56,8 +56,11 @@ class StrategyEvaluator {
     final bj = position.createdAt.toUtc().add(const Duration(hours: 8));
     final boughtDate =
         '${bj.year}-${bj.month.toString().padLeft(2, '0')}-${bj.day.toString().padLeft(2, '0')}';
+    // 建仓次日起的K线参与 highestPrice 回填。建仓当天的K线不参与——
+    // 日K含全天高低，若下午建仓、早上冲高，会把建仓前的高点算进来（如早上246、
+    // 下午建仓价217，highestPrice 误取246）。建仓当天的最高价由实时 tick 决定。
     final holdingKlines =
-        klines.where((k) => k.date.compareTo(boughtDate) >= 0).toList();
+        klines.where((k) => k.date.compareTo(boughtDate) > 0).toList();
     if (holdingKlines.isNotEmpty) {
       final klineHigh =
           holdingKlines.map((k) => k.high).reduce((a, b) => a > b ? a : b);
