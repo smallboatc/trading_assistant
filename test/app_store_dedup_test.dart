@@ -161,7 +161,7 @@ void main() {
     store.updatePosition(
       pos.id,
       price: 100,
-      quantity: 100,
+      quantity: 500,
       strategy: const StrategyConfig(
         hardStopPercent: 0.10,
         atrPeriod: 14,
@@ -174,18 +174,18 @@ void main() {
     );
     // 先拉一次记录 initialStop（baseStop=90），riskPerShare=10，第1档目标=120。
     await store.setManualPrice(pos.id, 100);
-    // 到第1档目标价 → 分批止盈提醒。
+    // 到第1档目标价 → 分批止盈提醒（500股>300，走分批）。
     await store.setManualPrice(pos.id, 120);
     final tpAlert = store.alerts.firstWhere(
         (a) => a.type == AlertType.takeProfitTarget);
     expect(pos.closedQuantity, 0);
     expect(pos.handled, isFalse);
 
-    // 确认分批止盈：按第1档 sellRatio(0.4) 累加 closedQuantity=40，不平仓。
+    // 确认分批止盈：按第1档 sellRatio(0.4) 累加 closedQuantity=200，不平仓。
     store.confirmAlert(tpAlert.id);
-    expect(pos.closedQuantity, 40);
+    expect(pos.closedQuantity, 200);
     expect(pos.handled, isFalse); // 仍有剩余仓位
-    expect(pos.remainingQuantity, 60);
+    expect(pos.remainingQuantity, 300);
   });
 
   // ---- confirmAlert 差异化：保本告知确认不平仓 ----

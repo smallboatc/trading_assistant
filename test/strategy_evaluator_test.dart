@@ -28,13 +28,13 @@ Position _pos(double hardStopPercent) =>
 /// 可指定止盈策略的持仓工厂。
 /// 关闭 ATR 自适应与止损确认，聚焦「取更紧者 / 类型判定」基础逻辑；
 /// 新特性（自适应/保本/分批/确认）由独立测试覆盖。
-Position _posWith(double hardStopPercent, TakeProfitStrategy tp) {
+Position _posWith(double hardStopPercent, TakeProfitStrategy tp, {int quantity = 100}) {
   final p = Position(
     id: 'p',
     accountId: 'default',
     code: '600519',
     name: '测试',
-    fills: [Fill(price: 10, quantity: 100, time: '2026-07-15')],
+    fills: [Fill(price: 10, quantity: quantity, time: '2026-07-15')],
     strategy: StrategyConfig(
       hardStopPercent: hardStopPercent,
       atrPeriod: 14,
@@ -77,7 +77,7 @@ void main() {
   test('batchAndTrailing 第1档止盈线应为盈亏比目标价', () {
     // 成本 10，硬止损 5% → 9.5；ATR=0.5，关自适应倍数 2.5 → atrStop=8.75；baseStop=9.5。
     // initialStop 首次记录=9.5，riskPerShare=0.5；第1档盈亏比 2.0 → 目标=10+2.0*0.5=11.0。
-    final pos = _posWith(0.05, TakeProfitStrategy.batchAndTrailing);
+    final pos = _posWith(0.05, TakeProfitStrategy.batchAndTrailing, quantity: 500);
     final result = StrategyEvaluator(pos).evaluate(
       klines: _flatKlines(30, 0.5),
       currentPrice: 10,
@@ -232,7 +232,7 @@ void main() {
   test('分批止盈：第1档到价触发提醒并递增档数', () {
     // cost=10, hardStop 5%→9.5, 关自适应 atrStop=8.75, baseStop=9.5, initialStop=9.5。
     // riskPerShare=0.5；第1档盈亏比2.0 → 目标价=10+2*0.5=11.0。
-    final pos = _posWith(0.05, TakeProfitStrategy.batchAndTrailing);
+    final pos = _posWith(0.05, TakeProfitStrategy.batchAndTrailing, quantity: 500);
     pos.strategy = StrategyConfig(
       hardStopPercent: 0.05,
       atrPeriod: 14,

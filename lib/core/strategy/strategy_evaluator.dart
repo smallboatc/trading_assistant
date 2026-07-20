@@ -153,13 +153,18 @@ class StrategyEvaluator {
     if (atr != null) {
       if (cfg.takeProfitStrategy == TakeProfitStrategy.batchAndTrailing) {
         // 分批止盈：跳过已触发档，取下一档目标价；全触发后剩余仓位用移动止盈。
+        // 小仓位（≤300股/3手）退化为移动止盈全平，因分批比例算出非整手无法实际卖出。
+        final totalQty = position.totalQuantity;
         final riskPerShare = position.initialStopPrice != null
             ? (cost - position.initialStopPrice!)
             : null;
         final remaining = cfg.takeProfitTargets
             .skip(position.triggeredTpCount)
             .toList();
-        if (riskPerShare != null && riskPerShare > 0 && remaining.isNotEmpty) {
+        if (totalQty > 300 &&
+            riskPerShare != null &&
+            riskPerShare > 0 &&
+            remaining.isNotEmpty) {
           final nextTarget = remaining.first;
           takeProfitPrice = cost + nextTarget.riskRewardRatio * riskPerShare;
           takeProfitType = AlertType.takeProfitTarget;
@@ -245,7 +250,7 @@ class StrategyEvaluator {
             floatingPnl: position.floatingPnl,
             message: '分批止盈第${position.triggeredTpCount}档触发：目标价 '
                 '${_fmt(takeProfitPrice)} 元，当前价 ${_fmt(currentPrice)} 元',
-            suggestion: '建议按本档比例卖出，剩余仓位继续监控',
+            suggestion: _batchSellSuggestion(position),
           );
         } else if (takeProfitType == AlertType.trailingTakeProfit &&
             currentPrice <= takeProfitPrice) {
@@ -300,4 +305,19 @@ class StrategyEvaluator {
   }
 
   String _fmt(double v) => v.toStringAsFixed(2);
+
+  /// 分批止盈档到价时的卖出建议：算出本档应卖股数（按 sellRatio，向下取整到整手）。
+  String _batchSellSuggestion(Position pos) {
+    final targets = pos.strategy.takeProfitTargets;
+    final targetIdx = (pos.triggeredTpCount - 1).clamp(0, targets.length - 1);
+    final ratio = targets[targetIdx].sellRatio;
+    final rawQty = pos.totalQuantity * ratio;
+    // A股按手卖，向下取整到 100 的倍数。
+    final sellQty = (rawQty ~/ 100) * 100;
+    final remaining = pos.totalQuantity - pos.closedQuantity - sellQty;
+    if (sellQty <= 0) {
+      return '本档比例不足1手，建议等下一档或手动处理';
+    }
+    return '建议卖出 $sellQty 股，剩余 $remaining 股继续监控';
+  }
 }

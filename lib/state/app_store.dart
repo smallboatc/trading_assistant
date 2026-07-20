@@ -197,12 +197,12 @@ class AppStore extends ChangeNotifier {
           pos.handled = true; // 止损/移动止盈：全平
           break;
         case AlertType.takeProfitTarget:
-          // 分批止盈：按本档比例累加已平仓数量。triggeredTpCount 在评估器到档时已 +1，
-          // 故本档索引 = triggeredTpCount - 1。
+          // 分批止盈：按本档比例累加已平仓数量，向下取整到整手（A股按100股卖）。
+          // triggeredTpCount 在评估器到档时已 +1，故本档索引 = triggeredTpCount - 1。
           final targets = pos.strategy.takeProfitTargets;
           final targetIdx = (pos.triggeredTpCount - 1).clamp(0, targets.length - 1);
           final sellQty =
-              (pos.totalQuantity * targets[targetIdx].sellRatio).round();
+              ((pos.totalQuantity * targets[targetIdx].sellRatio) ~/ 100) * 100;
           pos.closedQuantity += sellQty;
           if (pos.remainingQuantity <= 0) pos.handled = true;
           break;

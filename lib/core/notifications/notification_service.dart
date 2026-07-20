@@ -8,8 +8,12 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 /// 注意：iOS 后台无法持续 tick（系统挂起），故后台通知仅在 Android 上可靠。
 class NotificationService {
   NotificationService._();
-  static final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+
+  static FlutterLocalNotificationsPlugin? _pluginInstance;
+  static FlutterLocalNotificationsPlugin get _plugin {
+    _pluginInstance ??= FlutterLocalNotificationsPlugin();
+    return _pluginInstance!;
+  }
 
   static bool _initialized = false;
 
@@ -21,61 +25,72 @@ class NotificationService {
   /// 初始化（App 启动时调用一次）。
   static Future<void> init() async {
     if (_initialized) return;
-    const androidInit = AndroidInitializationSettings('@drawable/notification_icon');
-    const iosInit = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-    const settings = InitializationSettings(
-      android: androidInit,
-      iOS: iosInit,
-    );
-    await _plugin.initialize(
-      settings,
-      onDidReceiveNotificationResponse: _onTap,
-    );
-    // Android 创建通知渠道（重要级别：响铃 + 弹出）。
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          _channelId,
-          _channelName,
-          description: '止损止盈等交易提醒',
-          importance: Importance.high,
-        ));
-    _initialized = true;
+    try {
+      const androidInit = AndroidInitializationSettings('@drawable/notification_icon');
+      const iosInit = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+      const settings = InitializationSettings(
+        android: androidInit,
+        iOS: iosInit,
+      );
+      await _plugin.initialize(
+        settings,
+        onDidReceiveNotificationResponse: _onTap,
+      );
+      // Android 创建通知渠道（重要级别：响铃 + 弹出）。
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(const AndroidNotificationChannel(
+            _channelId,
+            _channelName,
+            description: '止损止盈等交易提醒',
+            importance: Importance.high,
+          ));
+    } catch (_) {
+      // 测试环境无插件通道等场景，静默失败。
+    } finally {
+      _initialized = true;
+    }
   }
 
-  /// 请求通知权限（Android 13+ 需运行时申请；iOS 需授权）。
+  /// 请求通知权限（Android 13+ 需运行时申请；iOS 需授权）。失败静默。
   static Future<void> requestPermissions() async {
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(alert: true, badge: true, sound: true);
+    try {
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
+    } catch (_) {}
   }
 
   /// 显示一条交易提醒通知。
-  /// [title] 通知标题，[body] 通知正文。
+  /// [title] 通知标题，[body] 通知正文。失败静默（测试环境无插件通道时不崩）。
   static Future<void> showAlert({required String title, required String body}) async {
-    if (!_initialized) await init();
-    const androidDetails = AndroidNotificationDetails(
-      _channelId,
-      _channelName,
-      channelDescription: '止损止盈等交易提醒',
-      importance: Importance.high,
-      priority: Priority.high,
-      autoCancel: true,
-      largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
-    );
-    const iosDetails = DarwinNotificationDetails();
-    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
-    await _plugin.show(_alertNotificationId, title, body, details);
+    try {
+      if (!_initialized) await init();
+      const androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: '止损止盈等交易提醒',
+        importance: Importance.high,
+        priority: Priority.high,
+        autoCancel: true,
+        largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      );
+      const iosDetails = DarwinNotificationDetails();
+      const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+      await _plugin.show(_alertNotificationId, title, body, details);
+    } catch (_) {
+      // 通知失败不影响 App 主流程（如测试环境无插件通道）。
+    }
   }
 
   /// 取消所有通知（用户处理提醒后调用）。
