@@ -129,6 +129,21 @@ class AppStore extends ChangeNotifier {
     _persist();
   }
 
+  /// 减仓：手动记录在券商端卖出部分，累加 closedQuantity 减少剩余仓位。
+  /// 不改变成本价（成本基于买入记录）。减到剩余为 0 则标记已平仓。
+  void reducePosition(String positionId, {required int quantity}) {
+    final idx = _positions.indexWhere((p) => p.id == positionId);
+    if (idx < 0) return;
+    final pos = _positions[idx];
+    if (quantity <= 0 || quantity > pos.remainingQuantity) return;
+    pos.closedQuantity += quantity;
+    if (pos.remainingQuantity <= 0) {
+      pos.handled = true; // 全部卖出，转已平仓
+    }
+    notifyListeners();
+    _persist();
+  }
+
   /// 编辑持仓：覆盖成本/数量/策略。成本与数量通过重置首笔 Fill 实现。
   /// V1 仅支持单笔建仓的修正；多笔分批建仓后的编辑见 V2。
   void updatePosition(String positionId, {required double price, required int quantity, required StrategyConfig strategy}) {

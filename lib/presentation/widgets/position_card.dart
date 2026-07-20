@@ -115,6 +115,17 @@ class PositionCard extends StatelessWidget {
                     ),
                   ),
                   const PopupMenuItem(
+                    value: 'reduce',
+                    child: Row(
+                      children: [
+                        Icon(CupertinoIcons.minus_circled, size: 18,
+                            color: AppTheme.nearTakeProfit),
+                        SizedBox(width: 8),
+                        Text('减仓'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
@@ -144,6 +155,8 @@ class PositionCard extends StatelessWidget {
                     context.read<AppStore>().reopenPosition(position.id);
                   case 'addFill':
                     _showAddFillDialog(context);
+                  case 'reduce':
+                    _showReduceDialog(context);
                   case 'edit':
                     _showEditDialog(context);
                   case 'delete':
@@ -268,6 +281,76 @@ class PositionCard extends StatelessWidget {
                 Navigator.of(ctx).pop();
               },
               child: const Text('加仓'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 减仓：手动记录卖出部分，累加已平仓数量，剩余继续监控。
+  void _showReduceDialog(BuildContext context) {
+    final qtyCtrl = TextEditingController();
+    var error = '';
+    final max = position.remainingQuantity;
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => CupertinoAlertDialog(
+          title: Text('减仓 ${position.name}'),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Column(
+              children: [
+                Text('剩余 $max 股，减仓后剩余仓位继续监控',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 8),
+                CupertinoTextField(
+                  controller: qtyCtrl,
+                  keyboardType: TextInputType.number,
+                  placeholder: '减仓数量(股，100 的倍数)',
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F2F7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                if (error.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(error,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.nearStop)),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('取消'),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () {
+                final q = int.tryParse(qtyCtrl.text.trim());
+                if (q == null || q <= 0) {
+                  setState(() => error = '请输入有效数量');
+                  return;
+                }
+                if (q > max) {
+                  setState(() => error = '不能超过剩余 $max 股');
+                  return;
+                }
+                if (q % 100 != 0) {
+                  setState(() => error = 'A 股数量需为 100 的倍数');
+                  return;
+                }
+                context.read<AppStore>().reducePosition(position.id, quantity: q);
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('减仓'),
             ),
           ],
         ),
